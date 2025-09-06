@@ -29,14 +29,10 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
-      # ここで公開したい静的ファイルをまとめてアーティファクト化
-      # ▼あなたの構成に合わせて "path" を変えてください
-      #   - ルート直下に index.html などがある → "."
-      #   - /public 配下に置いている           → "./public"
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: .   # ルートの場合は "." に変更
+          path: .
 
       - name: Deploy to GitHub Pages
         id: deployment
