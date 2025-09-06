@@ -3,27 +3,20 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>freee</title>
-  <style>
-    body { font-family: system-ui, sans-serif; margin: 16px; }
-    #employeeList li { margin: 4px 0; }
-    #employeeList a { cursor: pointer; text-decoration: underline; }
-    .detail-card { border: 1px solid #ddd; border-radius: 8px; padding: 12px; margin-top: 12px; }
-    .row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
-    select, button { padding: 6px 10px; font-size: 14px; }
-    #status { margin-top: 8px; color: #444; }
-  </style>
+  <title>従業員一覧</title>
+  <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
   <h1>従業員一覧</h1>
-  <ul id="employeeList"></ul>
 
-  <h2>従業員の詳細</h2>
-  <div id="employeeDetail" class="detail-card">
-    従業員名をクリックすると詳細と打刻フォームが表示されます。
-  </div>
+  <ul id="employeeList" class="list"></ul>
 
-  <!-- JS 読み込み -->
-  <script src="api.js"></script>
+  <!-- 行テンプレ：HTML側に置く -->
+  <template id="tpl-employee-item">
+    <li><a class="emp-link" href="#">名前</a></li>
+  </template>
+
+  <script src="./api.js"></script>
+  <script src="./index.js"></script>
 </body>
 </html>

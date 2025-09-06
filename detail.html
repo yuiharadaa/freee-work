@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>freee</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <a href="./index.html">← 一覧へ戻る</a>
+  <h1>従業員の詳細</h1>
+
+  <div class="detail-card">
+    <div><strong>従業員ID:</strong> <span id="empId">-</span></div>
+    <div><strong>名前:</strong> <span id="empName">-</span></div>
+
+    <div class="row">
+      <div>
+        <label>打刻種別</label><br/>
+        <select id="punchType">
+          <option value="出勤">出勤</option>
+          <option value="退勤">退勤</option>
+          <option value="休憩開始">休憩開始</option>
+          <option value="休憩終了">休憩終了</option>
+        </select>
+      </div>
+      <div>
+        <label>ポジション</label><br/>
+        <select id="position">
+          <option value="レジ">レジ</option>
+          <option value="ドリンカー">ドリンカー</option>
+          <option value="フライヤー">フライヤー</option>
+          <option value="バーガー">バーガー</option>
+        </select>
+      </div>
+      <div style="align-self:end;">
+        <button id="punchBtn">打刻</button>
+      </div>
+    </div>
+
+    <div id="status" class="status"></div>
+  </div>
+
+  <h3 style="margin:16px 0 8px;">直近の履歴</h3>
+  <table class="table">
+    <thead>
+      <tr><th>日付</th><th>時刻</th><th>種別</th><th>ポジション</th></tr>
+    </thead>
+    <tbody id="historyBody"></tbody>
+  </table>
+
+  <!-- 履歴1行テンプレ -->
+  <template id="tpl-history-row">
+    <tr>
+      <td class="c-date"></td>
+      <td class="c-time"></td>
+      <td class="c-type"></td>
+      <td class="c-pos"></td>
+    </tr>
+  </template>
+
+  <script src="./api.js"></script>
+  <script src="./detail.js"></script>
+</body>
+</html>
