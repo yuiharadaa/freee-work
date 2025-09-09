@@ -24,15 +24,13 @@
           <option value="バーガー">バーガー</option>
         </select>
       </div>
-    
 
-    <div id="status" class="status"></div>
-  
-
-    <div id="actionButtons" style="display:flex; gap:8px; align-items:flex-end;"></div>
+      <!-- ボタンをJSで注入する置き場 -->
+      <div id="actionButtons" style="display:flex; gap:8px; align-items:flex-end;"></div>
     </div>
 
-     <div id="status" class="status"></div>
+    <!-- ステータス（重複を解消して1つに） -->
+    <div id="status" class="status"></div>
   </div>
 
   <h3 style="margin:16px 0 8px;">直近の履歴</h3>
@@ -53,7 +51,8 @@
     </tr>
   </template>
 
-  <script src="./api.js"></script>
-  <script src="./detail.js"></script>
+  <!-- cache-busting を付けて古いJSを掴まないように -->
+  <script src="./api.js?v=2"></script>
+  <script src="./detail.js?v=2"></script>
 </body>
 </html>

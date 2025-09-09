@@ -1,4 +1,4 @@
-// detail.js（バニラ・グローバルAPI版）
+// detail.js（バニラ・グローバルAPI版：ボタン式遷移）
 let current = null;
 
 window.addEventListener('DOMContentLoaded', init);
@@ -24,32 +24,27 @@ async function init() {
 /** 履歴とボタンの再描画 */
 async function refreshUI() {
   await loadHistoryAndRender();
-  await renderActionButtons(); // 履歴から状態を見てボタンを出す
+  await renderActionButtons();
 }
 
-/** 今日の状態から次に押せるアクションを計算してボタン化 */
+/** アクションボタン描画：最新レコードから状態を判定 */
 async function renderActionButtons() {
   const container = document.getElementById('actionButtons');
   container.textContent = '…';
   try {
-    // 直近30日を取得し、今日のレコードだけ抽出
     const all = await API.fetchHistory({ employeeId: current.id, days: 30 });
-    const today = ymd(new Date());
-    const todayRows = all.filter(r => r.date === today)
-                         .sort((a, b) => (`${a.date} ${a.time}` < `${b.date} ${b.time}` ? 1 : -1));
+    const last = getLastEvent(all); // 最新レコード1件
+    const nextActions = decideNextByLastType(last?.punchType);
 
-    const nextActions = decideNextActions(todayRows);
     container.textContent = '';
-
     nextActions.forEach(action => {
       const btn = document.createElement('button');
-      btn.textContent = action; // 出勤 / 退勤 / 休憩開始 / 休憩終了
+      btn.textContent = action;
       btn.addEventListener('click', () => onPunchAction(action));
       container.appendChild(btn);
     });
 
     if (nextActions.length === 0) {
-      // フォールバック（通常は来ない）
       const msg = document.createElement('span');
       msg.textContent = '今は実行可能なアクションがありません。';
       container.appendChild(msg);
@@ -70,7 +65,7 @@ async function onPunchAction(action) {
     const saved = await API.sendPunch({
       id: current.id,
       name: current.name,
-      punchType: action, // ← ここが肝：選択肢ではなく決め打ち
+      punchType: action,
       position
     });
     status.textContent = `打刻完了: ${saved.date} ${saved.time} / ${saved.punchType} / ${saved.position}`;
@@ -81,31 +76,37 @@ async function onPunchAction(action) {
   }
 }
 
-/** 今日の最後の打刻から「次に押せるアクション」を返す */
-function decideNextActions(todayRows) {
-  // 状態遷移：
-  // START or OFF(退勤済) → [出勤]
-  // WORKING(出勤後) → [退勤, 休憩開始]
-  // BREAK(休憩開始後) → [休憩終了]
-  // AFTER_BREAK(休憩終了後) → [退勤]
+/** 最新の打刻1件を返す（date/time を正しくパースして比較） */
+function getLastEvent(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return null;
+  const withTs = rows.map(r => ({ ...r, __ts: toTimestamp(r.date, r.time) }))
+                    .filter(r => !Number.isNaN(r.__ts));
+  if (withTs.length === 0) return null;
+  withTs.sort((a, b) => b.__ts - a.__ts); // 降順＝新しい順
+  return withTs[0];
+}
 
-  if (!todayRows.length) return ['出勤'];
+/** “YYYY-MM-DD / YYYY/MM/DD + H:m[:s]” を Date に変換して epoch(ms) 返す */
+function toTimestamp(dateStr, timeStr) {
+  const d = String(dateStr || '').trim().replace(/\./g, '-').replace(/\//g, '-');
+  let t = String(timeStr || '00:00:00').trim();
+  const parts = t.split(':').map(x => x.padStart(2, '0'));
+  while (parts.length < 3) parts.push('00');
+  t = parts.slice(0,3).join(':');
+  const iso = `${d}T${t}`;
+  const dt = new Date(iso);
+  return dt.getTime();
+}
 
-  const last = todayRows[0]; // 新しい順ソート済みの先頭
-  const lastType = last.punchType;
-
+/** 直前の種別から次に押せるボタンを決める */
+function decideNextByLastType(lastType) {
+  if (!lastType) return ['出勤'];
   switch (lastType) {
-    case '出勤':
-      return ['退勤', '休憩開始'];
-    case '休憩開始':
-      return ['休憩終了'];
-    case '休憩終了':
-      return ['退勤'];
-    case '退勤':
-      return ['出勤'];
-    default:
-      // 想定外の種別が来た場合は出勤だけを許可（フォールバック）
-      return ['出勤'];
+    case '出勤':     return ['退勤', '休憩開始'];
+    case '休憩開始': return ['休憩終了'];
+    case '休憩終了': return ['退勤'];
+    case '退勤':     return ['出勤'];
+    default:         return ['出勤']; // 想定外はフォールバック
   }
 }
 
@@ -144,12 +145,4 @@ async function loadHistoryAndRender() {
     err.innerHTML = `<td colspan="4">履歴の取得に失敗しました。</td>`;
     tbody.appendChild(err);
   }
-}
-
-/** YYYY-MM-DD */
-function ymd(d) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
 }
