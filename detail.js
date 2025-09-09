@@ -40,7 +40,7 @@ async function renderActionButtons() {
       const btn = document.createElement('button');
       btn.textContent = action;
 
-      // ★ アクションに応じてクラスを付与
+      // アクションに応じてクラスを付与
       switch (action) {
         case '出勤':     btn.className = 'btn-shukkin'; break;
         case '退勤':     btn.className = 'btn-taikin'; break;

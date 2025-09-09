@@ -4,22 +4,21 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>freee</title>
-  <link rel="stylesheet" href="./style.css" />
+  <link rel="stylesheet" href="./style.css?v=7" />
 </head>
 <body>
   <div class="layout">
-    <!-- 左カラム：従業員一覧 -->
+    <!-- 左：従業員一覧 -->
     <div class="employee-list">
       <h1>従業員一覧</h1>
       <ul id="employeeList" class="list"></ul>
 
-      <!-- 1人分のLIテンプレ -->
       <template id="tpl-employee-item">
         <li><a class="emp-link" href="#">名前</a></li>
       </template>
     </div>
 
-    <!-- 右カラム：ガントチャート -->
+    <!-- 右：ガントチャート -->
     <div class="gantt-area">
       <h2>本日の出勤者（営業時間 09:00–22:00）</h2>
       <div id="gantt" class="gantt"></div>

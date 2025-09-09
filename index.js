@@ -1,12 +1,10 @@
-// index.js（ホーム）
-// すでに window.API (fetchEmployees, fetchHistory, escapeHtml) が使える前提
+// index.js（ガント描画・営業時間 09:00–22:00 固定・全社員個別で履歴取得）
 
-// 営業時間
-const OPEN_HOUR = 9;   // 09:00
-const CLOSE_HOUR = 22; // 22:00
-const DAY_MINUTES = (CLOSE_HOUR - OPEN_HOUR) * 60; // 780
+const OPEN_HOUR = 9;
+const CLOSE_HOUR = 22;
+const DAY_MINUTES = (CLOSE_HOUR - OPEN_HOUR) * 60;
 
-// ポジション→CSSクラス
+// ポジション→CSSクラス（style.css と一致させる）
 const POS_CLASS = {
   'レジ': 'pos-reji',
   'ドリンカー': 'pos-drink',
@@ -15,24 +13,30 @@ const POS_CLASS = {
 };
 
 window.addEventListener('DOMContentLoaded', async () => {
-  await renderEmployeeList();
-  await refreshGantt();
-
-  // detail で打刻したらホーム更新（BroadcastChannel経由）
   try {
-    const bc = new BroadcastChannel('punch');
-    bc.onmessage = () => refreshGantt();
-  } catch {}
-  // 念のため1分おきに再描画
-  setInterval(refreshGantt, 60_000);
-  // 0:00切替（営業時間固定だが、日付跨ぎで再描画）
-  setMidnightTimer();
+    await renderEmployeeList();
+    await refreshGantt();
+
+    // detail で打刻完了時の更新通知（BroadcastChannel）
+    try {
+      const bc = new BroadcastChannel('punch');
+      bc.onmessage = () => refreshGantt();
+    } catch {}
+
+    // 念のためポーリング（1分）
+    setInterval(refreshGantt, 60_000);
+    setMidnightTimer();
+  } catch (e) {
+    console.error(e);
+  }
 });
 
-// 一覧レンダ
+// 従業員一覧を描画
 async function renderEmployeeList() {
   const ul = document.getElementById('employeeList');
   const tpl = document.getElementById('tpl-employee-item');
+  if (!ul || !tpl) return;
+
   try {
     const employees = await API.fetchEmployees();
     const frag = document.createDocumentFragment();
@@ -51,34 +55,55 @@ async function renderEmployeeList() {
   }
 }
 
-// ガント再描画
+// ガント再描画（ID検証つき＆ログあり）
 async function refreshGantt() {
   const container = document.getElementById('gantt');
+  if (!container) return;
   container.textContent = '読み込み中…';
 
   try {
-    // 今日の履歴だけでOK（営業時間内固定・持ち越しなし）
-    const today = ymd(new Date());
-    const rows = await API.fetchHistory({ employeeId: '', days: 1 }); // GAS側の仕様次第
-    // ↑もし fetchHistory が employeeId必須なら、GAS側で「全社員の今日」を返すAPIが必要。
-    // 既存APIが個別のみなら、まず全社員一覧→社員ごとに history を取る方式に変更する：
-    // const emps = await API.fetchEmployees();
-    // const allRows = [];
-    // for (const e of emps) {
-    //   const r = await API.fetchHistory({ employeeId: e.id, days: 1 });
-    //   allRows.push(...r);
-    // }
-    // const rows = allRows;
+    const emps = await API.fetchEmployees();
+    const allRows = [];
+    const todayYMD = ymd(new Date());
 
-    // クライアントで“今日だけ”に絞る（フォーマット揺れ対策）
-    const todayRows = rows.filter(r => normalizeDateStr(r.date) === today);
+    // 従業員ごとに履歴取得
+    for (const e of emps) {
+      // id と employeeId の両対応
+      const id = (e && (e.id ?? e.employeeId)) ?? null;
 
-    // 社員ごとに区間を構築（勤務区間：ポジション色、休憩区間：グレー）
-    const intervalsByEmp = buildIntervals(todayRows);
+      console.log('[GANTT] fetch対象:', { id, name: e?.name, raw: e });
 
-    // DOMを作る
+      if (!id || String(id).trim() === '') {
+        console.warn('[GANTT] skip: invalid employeeId', e);
+        continue;
+      }
+
+      try {
+        const rows = await API.fetchHistory({ employeeId: id, days: 1 });
+        rows
+          .filter(r => normalizeDateStr(r.date) === todayYMD)
+          .forEach(r => {
+            r.employeeId = r.employeeId ?? id;        // 無ければ補完
+            r.employeeName = r.employeeName || e.name || String(id);
+            allRows.push(r);
+          });
+      } catch (err) {
+        console.warn('[GANTT] 履歴取得失敗:', { id, name: e?.name, err });
+      }
+    }
+
+    console.log('[GANTT] 集計後の行数:', allRows.length);
+
+    const intervalsByEmp = buildIntervals(allRows);
+
+    // DOM描画
     container.textContent = '';
-    intervalsByEmp.forEach((info, empId) => {
+    if (intervalsByEmp.size === 0) {
+      container.textContent = '本日の出勤はまだありません。';
+      return;
+    }
+
+    intervalsByEmp.forEach((info) => {
       const row = document.createElement('div');
       row.className = 'gantt-row';
 
@@ -100,7 +125,7 @@ async function refreshGantt() {
         track.appendChild(el);
       });
 
-      // 休憩セグメント（薄グレー）
+      // 休憩セグメント
       info.breaks.forEach(seg => {
         const el = document.createElement('div');
         el.className = 'seg seg-break';
@@ -112,19 +137,24 @@ async function refreshGantt() {
       container.appendChild(row);
     });
 
-    if (intervalsByEmp.size === 0) {
-      container.textContent = '本日の出勤はまだありません。';
-    }
   } catch (e) {
     console.error(e);
     container.textContent = 'ガントの描画に失敗しました。';
   }
 }
 
-/* ---- 区間構築ロジック（今日の09:00–22:00のみ） ---- */
+
+// ID検証（null/undefined/空文字を弾く。0は許容しない）
+function isValidId(id) {
+  // 文字列/数値ともOKだが、空文字とNaNは除外
+  if (id === null || id === undefined) return false;
+  const s = String(id).trim();
+  return s.length > 0;
+}
+
+/* ========= 区間構築（今日 09:00–22:00 のみ） ========= */
 
 function buildIntervals(rows) {
-  // 社員ごとにまとめ、日時昇順
   const byEmp = groupBy(rows, r => String(r.employeeId));
   const result = new Map();
 
@@ -135,13 +165,12 @@ function buildIntervals(rows) {
     const workSegs = [];
     const breakSegs = [];
 
-    let currentStart = null;      // 勤務開始のDate
-    let currentPos = null;        // 現在のポジション
-    let breakStart = null;        // 休憩開始のDate
+    let currentStart = null; // 勤務開始のDate
+    let currentPos   = null; // その勤務のポジション
+    let breakStart   = null; // 休憩開始のDate
 
     for (const ev of list) {
       const t = asDate(ev.date, ev.time);
-      // 営業時間でクリップ用
       const [dayS, dayE] = businessDayBounds(t);
 
       switch (ev.punchType) {
@@ -153,7 +182,6 @@ function buildIntervals(rows) {
 
         case '休憩開始':
           if (currentStart) {
-            // 勤務区間を 休憩開始までで一旦閉じる
             pushWork(workSegs, currentStart, t, currentPos, dayS, dayE);
             breakStart = t;
           }
@@ -161,10 +189,8 @@ function buildIntervals(rows) {
 
         case '休憩終了':
           if (breakStart) {
-            // 休憩区間を追加
             pushBreak(breakSegs, breakStart, t, dayS, dayE);
-            // 休憩明けから勤務再開（ポジションは直前を引き継ぐ想定）
-            currentStart = t;
+            currentStart = t;      // 休憩明けから勤務再開
             breakStart = null;
           }
           break;
@@ -176,10 +202,6 @@ function buildIntervals(rows) {
             breakStart = null;
           }
           break;
-
-        default:
-          // 想定外は無視
-          break;
       }
     }
 
@@ -189,9 +211,7 @@ function buildIntervals(rows) {
       const [dayS, dayE] = businessDayBounds(now);
       pushWork(workSegs, currentStart, now, currentPos, dayS, dayE);
     }
-    // 休憩終了が無い片割れは無視（仕様）
 
-    // 分がマイナス/ゼロの場合を除去
     const work = workSegs.filter(s => s.endMin > s.startMin);
     const brks = breakSegs.filter(s => s.endMin > s.startMin);
 
@@ -203,7 +223,7 @@ function buildIntervals(rows) {
   return result;
 }
 
-/* 1日の境界（そのイベントの日の 09:00–22:00）*/
+/* 1日の境界（その日の 09:00–22:00）*/
 function businessDayBounds(d) {
   const s = new Date(d.getFullYear(), d.getMonth(), d.getDate(), OPEN_HOUR, 0, 0);
   const e = new Date(d.getFullYear(), d.getMonth(), d.getDate(), CLOSE_HOUR, 0, 0);
@@ -219,7 +239,6 @@ function pushWork(out, s, e, pos, dayS, dayE) {
     className: POS_CLASS[pos] || 'pos-reji'
   });
 }
-
 function pushBreak(out, s, e, dayS, dayE) {
   const seg = clip(s, e, dayS, dayE);
   if (!seg) return;
@@ -229,31 +248,26 @@ function pushBreak(out, s, e, dayS, dayE) {
   });
 }
 
-/* 09:00 起点の分 */
 function minutesFromOpen(d) {
   return (d.getHours() - OPEN_HOUR) * 60 + d.getMinutes();
 }
-
-/* 営業時間でクリップ */
 function clip(s, e, dayS, dayE) {
   const start = new Date(Math.max(s, dayS));
   const end   = new Date(Math.min(e, dayE));
   return end > start ? { start, end } : null;
 }
 
-/* ---- ヘルパ ---- */
+/* ========= ヘルパ ========= */
 function groupBy(arr, keyFn) {
   const m = new Map();
   for (const x of arr) {
     const k = keyFn(x);
-    const a = m.get(k);
-    if (a) a.push(x); else m.set(k, [x]);
+    (m.get(k) || m.set(k, []).get(k)).push(x);
   }
   return m;
 }
 function ts(r) { return asDate(r.date, r.time).getTime(); }
 function normalizeDateStr(s) {
-  // 'YYYY/MM/DD' or 'YYYY-MM-DD' → 'YYYY-MM-DD'
   return String(s || '').trim().replace(/\./g,'-').replace(/\//g,'-');
 }
 function asDate(dateStr, timeStr) {
@@ -270,7 +284,6 @@ function ymd(d) {
 }
 function pct(f) { return `${Math.max(0, Math.min(1, f)) * 100}%`; }
 
-/* 0:00で再描画 */
 function setMidnightTimer() {
   const now = new Date();
   const next = new Date(now.getFullYear(), now.getMonth(), now.getDate()+1, 0,0,0);
