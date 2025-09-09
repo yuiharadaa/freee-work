@@ -32,21 +32,29 @@ async function renderActionButtons() {
   container.textContent = '…';
   try {
     const all = await API.fetchHistory({ employeeId: current.id, days: 30 });
-    const last = getLastEvent(all); // 最新レコード1件
+    const last = getLastEvent(all);
     const nextActions = decideNextByLastType(last?.punchType);
 
     container.textContent = '';
     nextActions.forEach(action => {
       const btn = document.createElement('button');
       btn.textContent = action;
+
+      // ★ アクションに応じてクラスを付与
+      switch (action) {
+        case '出勤':     btn.className = 'btn-shukkin'; break;
+        case '退勤':     btn.className = 'btn-taikin'; break;
+        case '休憩開始': btn.className = 'btn-kyuukei-start'; break;
+        case '休憩終了': btn.className = 'btn-kyuukei-end'; break;
+        default:         btn.className = 'btn-shukkin';
+      }
+
       btn.addEventListener('click', () => onPunchAction(action));
       container.appendChild(btn);
     });
 
     if (nextActions.length === 0) {
-      const msg = document.createElement('span');
-      msg.textContent = '今は実行可能なアクションがありません。';
-      container.appendChild(msg);
+      container.textContent = '今は実行可能なアクションがありません。';
     }
   } catch (e) {
     console.error(e);
