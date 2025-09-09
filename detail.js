@@ -1,4 +1,3 @@
-// detail.js（バニラ・グローバルAPI版：ボタン式遷移）
 let current = null;
 
 window.addEventListener('DOMContentLoaded', init);
@@ -27,7 +26,7 @@ async function refreshUI() {
   await renderActionButtons();
 }
 
-/** アクションボタン描画：最新レコードから状態を判定 */
+/** 今の状態を調査 */
 async function renderActionButtons() {
   const container = document.getElementById('actionButtons');
   container.textContent = '…';
@@ -110,7 +109,6 @@ function decideNextByLastType(lastType) {
   }
 }
 
-/** 履歴テーブルの再描画 */
 async function loadHistoryAndRender() {
   const tbody  = document.getElementById('historyBody');
   const tplRow = document.getElementById('tpl-history-row');

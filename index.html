@@ -7,14 +7,33 @@
   <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
-  <h1>従業員一覧</h1>
+  <div class="layout">
+    <!-- 左カラム：従業員一覧 -->
+    <div class="employee-list">
+      <h1>従業員一覧</h1>
+      <ul id="employeeList" class="list"></ul>
 
-  <ul id="employeeList" class="list"></ul>
+      <!-- 1人分のLIテンプレ -->
+      <template id="tpl-employee-item">
+        <li><a class="emp-link" href="#">名前</a></li>
+      </template>
+    </div>
 
-  <!-- 行テンプレ：HTML側に置く -->
-  <template id="tpl-employee-item">
-    <li><a class="emp-link" href="#">名前</a></li>
-  </template>
+    <!-- 右カラム：ガントチャート -->
+    <div class="gantt-area">
+      <h2>本日の出勤者（営業時間 09:00–22:00）</h2>
+      <div id="gantt" class="gantt"></div>
+
+      <!-- 凡例 -->
+      <div class="legend">
+        <span class="legend-item"><i class="seg pos-reji"></i>レジ</span>
+        <span class="legend-item"><i class="seg pos-drink"></i>ドリンカー</span>
+        <span class="legend-item"><i class="seg pos-fry"></i>フライヤー</span>
+        <span class="legend-item"><i class="seg pos-burger"></i>バーガー</span>
+        <span class="legend-item"><i class="seg seg-break"></i>休憩</span>
+      </div>
+    </div>
+  </div>
 
   <script src="./api.js"></script>
   <script src="./index.js"></script>
