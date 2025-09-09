@@ -16,15 +16,6 @@
 
     <div class="row">
       <div>
-        <label>打刻種別</label><br/>
-        <select id="punchType">
-          <option value="出勤">出勤</option>
-          <option value="退勤">退勤</option>
-          <option value="休憩開始">休憩開始</option>
-          <option value="休憩終了">休憩終了</option>
-        </select>
-      </div>
-      <div>
         <label>ポジション</label><br/>
         <select id="position">
           <option value="レジ">レジ</option>
@@ -33,12 +24,15 @@
           <option value="バーガー">バーガー</option>
         </select>
       </div>
-      <div style="align-self:end;">
-        <button id="punchBtn">打刻</button>
-      </div>
-    </div>
+    
 
     <div id="status" class="status"></div>
+  
+
+    <div id="actionButtons" style="display:flex; gap:8px; align-items:flex-end;"></div>
+    </div>
+
+     <div id="status" class="status"></div>
   </div>
 
   <h3 style="margin:16px 0 8px;">直近の履歴</h3>
