@@ -1,233 +1,120 @@
-/* ========== 基本設定 ========== */
-
+/* ===== ベース ===== */
 :root{
-  --bg: #f9fafb;
-  --text: #333;
-  --muted: #6b7280;
-
+  --bg: #f8fafc;
+  --card: #ffffff;
+  --text: #0f172a;
+  --muted: #64748b;
   --border: #e5e7eb;
-  --shadow: 0 2px 6px rgba(0,0,0,0.05);
+  --shadow: 0 2px 8px rgba(0,0,0,.06);
+  --radius: 12px;
 
-  /* アクション色 */
-  --blue: #2563eb;       /* 出勤 */
-  --blue-d: #1d4ed8;
-  --red: #ef4444;        /* 退勤 */
-  --red-d: #dc2626;
-  --orange: #f59e0b;     /* 休憩開始 */
-  --orange-d: #d97706;
-  --green: #16a34a;      /* 休憩終了 */
-  --green-d: #15803d;
-
-  /* ガント・ポジション色（参考：ホーム画面） */
-  --pos-reji:   #2563eb;
-  --pos-drink:  #16a34a;
-  --pos-fry:    #f59e0b;
-  --pos-burger: #ef4444;
-  --break: #9ca3af;
+  /* ポジション色 */
+  --reji:   #2563eb; /* 青 */
+  --drink:  #16a34a; /* 緑 */
+  --fry:    #f59e0b; /* 黄 */
+  --burger: #ef4444; /* 赤 */
+  --break:  #9ca3af; /* グレー */
 }
-
-* { box-sizing: border-box; }
-
-html, body {
-  height: 100%;
-}
-
-body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans JP", sans-serif;
-  margin: 0;
-  padding: 24px;
-  line-height: 1.6;
+*{ box-sizing: border-box; }
+html,body{ height:100%; }
+body{
+  margin:0; padding:24px;
   background: var(--bg);
   color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", sans-serif;
+  line-height: 1.6;
 }
 
-h1 { margin: 0 0 16px; font-size: 24px; }
-h2 { margin: 16px 0 12px; font-size: 20px; }
-h3 { margin: 16px 0 8px;  font-size: 18px; }
-
-a { color: var(--blue); text-decoration: none; }
-a:hover { text-decoration: underline; }
-
-/* ========== レイアウト（ホームの左右並び用。detailでは不要だがそのまま使える） ========== */
-.layout {
-  display: flex;
-  align-items: flex-start;
+/* ===== レイアウト ===== */
+.layout{
+  display: grid;
+  grid-template-columns: 1fr 2fr;
   gap: 24px;
 }
-.employee-list { flex: 0 0 220px; }
-.gantt-area     { flex: 1; }
+@media (max-width: 960px){
+  .layout{ grid-template-columns: 1fr; }
+}
+.employee-list{ align-self: start; }
+.gantt-area{ align-self: start; }
 
-/* ========== カード（detailページ上部） ========== */
-.detail-card {
-  background: #fff;
+/* ===== カード ===== */
+.card{
+  background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 20px;
-  margin-top: 16px;
+  border-radius: var(--radius);
   box-shadow: var(--shadow);
+  padding: 16px;
 }
-.row {
-  display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
-  margin-top: 16px;
-  align-items: flex-end;
-}
-.status {
-  margin-top: 12px;
-  font-size: 14px;
-  color: var(--muted);
+.card-title{
+  margin: 0 0 12px;
+  font-size: 18px;
+  font-weight: 700;
 }
 
-/* ========== フォーム要素（select と共通ボタン土台） ========== */
-select, button {
-  font-size: 14px;
-}
-select {
-  padding: 8px 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: #fff;
-}
-button {
-  padding: 10px 14px;
-  border: none;
-  border-radius: 8px;
+/* ===== 従業員リスト ===== */
+.list{ list-style: none; padding: 0; margin: 0; }
+.list li{ padding: 6px 0; border-bottom: 1px dashed var(--border); }
+.list li:last-child{ border-bottom: none; }
+.emp-link{
+  color: #1f2937;
+  text-decoration: underline;
   cursor: pointer;
 }
+.emp-link:hover{ opacity: .8; }
 
-/* ========== アクション別ボタン（大きめ・色分け） ========== */
-.action-buttons button {
-  padding: 12px 20px;
-  font-size: 16px;
-  font-weight: 700;
-  color: #fff;
-  margin-right: 8px;
-  transition: background .2s, transform .06s, box-shadow .06s;
-  box-shadow: 0 1px 0 rgba(0,0,0,.04);
-}
-.action-buttons button:active {
-  transform: translateY(1px);
-}
-
-/* 出勤（青） */
-.btn-shukkin { background: var(--blue); }
-.btn-shukkin:hover { background: var(--blue-d); }
-
-/* 退勤（赤） */
-.btn-taikin { background: var(--red); }
-.btn-taikin:hover { background: var(--red-d); }
-
-/* 休憩開始（オレンジ） */
-.btn-kyuukei-start {
-  background: var(--orange);
-  color: #111; /* 視認性 */
-}
-.btn-kyuukei-start:hover { background: var(--orange-d); }
-
-/* 休憩終了（緑） */
-.btn-kyuukei-end { background: var(--green); }
-.btn-kyuukei-end:hover { background: var(--green-d); }
-
-/* ========== テーブル（履歴：枠付きカード風） ========== */
-.table {
-  border-collapse: collapse;
-  width: 100%;
-  max-width: 840px;
-  background: #fff;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  overflow: hidden;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-}
-.table th, .table td {
-  border: 1px solid var(--border);
-  padding: 10px 12px;
-  text-align: left;
+/* ===== 凡例 ===== */
+.legend{
+  display: flex; flex-wrap: wrap; gap: 12px;
+  margin: 6px 0 10px;
+  color: var(--muted);
   font-size: 14px;
 }
-.table thead {
-  background: #f3f4f6;
-  font-weight: 600;
+.legend-item{ display: inline-flex; align-items: center; gap: 6px; }
+.legend-swatch{
+  display: inline-block;
+  width: 14px; height: 14px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
 }
-.table tbody tr:hover {
-  background: #fafafa;
-}
+.legend-swatch.pos-reji{ background: var(--reji); border-color: color-mix(in srgb, var(--reji) 70%, #0000); }
+.legend-swatch.pos-drink{ background: var(--drink); border-color: color-mix(in srgb, var(--drink) 70%, #0000); }
+.legend-swatch.pos-fry{ background: var(--fry); border-color: color-mix(in srgb, var(--fry) 70%, #0000); }
+.legend-swatch.pos-burger{ background: var(--burger); border-color: color-mix(in srgb, var(--burger) 70%, #0000); }
+.legend-swatch.seg-break{ background: var(--break); border-color: color-mix(in srgb, var(--break) 70%, #0000); }
 
-/* ========== リスト（左カラムの従業員一覧） ========== */
-.list { list-style: none; padding: 0; margin: 0; }
-.list li { margin: 6px 0; }
-.emp-link { text-decoration: none; }
-.emp-link:hover { text-decoration: underline; }
-
-/* ========== ガント（ホーム画面用。detailには影響しない） ========== */
-.gantt {
-  background:#fff;
-  border:1px solid var(--border);
-  border-radius:12px;
-  padding:12px;
-  margin-top:12px;
+/* ===== ガント（Chart.js キャンバス） ===== */
+.gantt-canvas{
+  display: block;
+  width: 100%;
+  /* 高さは index.js 側で従業員数に合わせて自動調整 */
+  min-height: 220px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   box-shadow: var(--shadow);
+  padding: 8px; /* Chart.jsはpadding無視なので視覚的余白としてOK */
 }
-.gantt-row {
-  display:flex;
-  align-items:center;
-  gap:12px;
-  margin:10px 0;
-}
-.gantt-label {
-  width:160px;
-  font-size:14px;
-  color:#374151;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-.gantt-track {
-  position:relative;
-  flex:1;
-  height:18px;
-  background:#f3f4f6;
-  border-radius:9px;
-  overflow:hidden;
-}
-.seg {
-  position:absolute;
-  top:0; bottom:0;
-  border-radius:9px;
-  opacity:.95;
-}
-.pos-reji   { background: var(--pos-reji); }
-.pos-drink  { background: var(--pos-drink); }
-.pos-fry    { background: var(--pos-fry); color:#111; }
-.pos-burger { background: var(--pos-burger); }
-.seg-break  { background: var(--break); opacity:.6; }
 
-/* 凡例 */
-.legend { display:flex; gap:16px; align-items:center; margin-top:8px; color:#4b5563; font-size:14px; }
-.legend-item { display:flex; align-items:center; gap:6px; }
-.legend .seg { width:28px; height:12px; border-radius:6px; position:static; }
+/* ===== detail用の共通（あれば） ===== */
+.detail-card{ background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; }
+.row{ display:flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; }
+.table{ width: 100%; border-collapse: collapse; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.table th, .table td{ padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: left; }
+.table thead th{ background: #f4f6f8; font-weight: 600; }
+.status{ margin-top: 8px; color: var(--muted); }
 
-/* ========== ユーティリティ ========== */
-.hidden { display:none !important; }
+/* アクションボタン（位置・色分けはJSでclass付与） */
+.action-buttons{ display:flex; flex-wrap: wrap; gap:8px; align-items:flex-end; }
+.btn{ appearance:none; border:none; border-radius:10px; padding:10px 14px; font-weight:700; cursor:pointer; color:#fff; box-shadow: var(--shadow); }
+.btn:disabled{ opacity:.5; cursor:not-allowed; }
+.btn-shukkin{ background:#2563eb; }
+.btn-taikin{ background:#0ea5e9; }
+.btn-kyuukei-start{ background:#f59e0b; color:#111; }
+.btn-kyuukei-end{ background:#22c55e; }
 
-/* ========== レスポンシブ ========== */
-@media (max-width: 960px) {
-  .layout {
-    flex-direction: column;
-  }
-  .employee-list {
-    flex: none;
-    width: 100%;
-  }
-  .gantt-label { width: 120px; }
-}
-@media (max-width: 600px) {
-  body { padding: 16px; }
-  .action-buttons button {
-    width: 100%;
-    margin-right: 0;
-    margin-top: 8px;
-  }
-  .gantt-label { width: 100px; }
-}
+/* 既存ポジション用クラス（自家製DOM版との互換用） */
+.pos-reji{ background: var(--reji); }
+.pos-drink{ background: var(--drink); }
+.pos-fry{ background: var(--fry); }
+.pos-burger{ background: var(--burger); }
+.seg-break{ background: var(--break); }

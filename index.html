@@ -4,37 +4,48 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>freee</title>
-  <link rel="stylesheet" href="./style.css?v=7" />
+  <link rel="stylesheet" href="./style.css?v=10" />
 </head>
 <body>
   <div class="layout">
     <!-- 左：従業員一覧 -->
-    <div class="employee-list">
-      <h1>従業員一覧</h1>
+    <section class="employee-list card">
+      <h1 class="card-title">従業員一覧</h1>
       <ul id="employeeList" class="list"></ul>
 
+      <!-- 1人分のLIテンプレ -->
       <template id="tpl-employee-item">
         <li><a class="emp-link" href="#">名前</a></li>
       </template>
-    </div>
+    </section>
 
     <!-- 右：ガントチャート -->
-    <div class="gantt-area">
-      <h2>本日の出勤者（営業時間 09:00–22:00）</h2>
-      <div id="gantt" class="gantt"></div>
+    <section class="gantt-area">
+      <div class="card">
+        <h2 class="card-title">本日の出勤者（営業時間 09:00–22:00）</h2>
 
-      <!-- 凡例 -->
-      <div class="legend">
-        <span class="legend-item"><i class="seg pos-reji"></i>レジ</span>
-        <span class="legend-item"><i class="seg pos-drink"></i>ドリンカー</span>
-        <span class="legend-item"><i class="seg pos-fry"></i>フライヤー</span>
-        <span class="legend-item"><i class="seg pos-burger"></i>バーガー</span>
-        <span class="legend-item"><i class="seg seg-break"></i>休憩</span>
+        <!-- 凡例 -->
+        <div class="legend">
+          <span class="legend-item"><i class="legend-swatch pos-reji"></i>レジ</span>
+          <span class="legend-item"><i class="legend-swatch pos-drink"></i>ドリンカー</span>
+          <span class="legend-item"><i class="legend-swatch pos-fry"></i>フライヤー</span>
+          <span class="legend-item"><i class="legend-swatch pos-burger"></i>バーガー</span>
+          <span class="legend-item"><i class="legend-swatch seg-break"></i>休憩</span>
+        </div>
+
+        <!-- Chart.js キャンバス -->
+        <canvas id="ganttCanvas" class="gantt-canvas"></canvas>
       </div>
-    </div>
+    </section>
   </div>
 
-  <script src="./api.js"></script>
-  <script src="./index.js"></script>
+  <!-- 依存（順番厳守） -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <script src="https://cdn.jsdelivr.net/npm/luxon@3"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1"></script>
+
+  <!-- アプリ本体 -->
+  <script src="./api.js?v=10"></script>
+  <script src="./index.js?v=30"></script>
 </body>
 </html>
