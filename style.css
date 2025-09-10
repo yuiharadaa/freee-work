@@ -86,13 +86,12 @@ body{
 .gantt-canvas{
   display: block;
   width: 100%;
-  /* 高さは index.js 側で従業員数に合わせて自動調整 */
-  min-height: 220px;
+  min-height: 80px;
   background: #fff;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  padding: 8px; /* Chart.jsはpadding無視なので視覚的余白としてOK */
+  padding: 8px; 
 }
 
 /* ===== detail用の共通（あれば） ===== */
