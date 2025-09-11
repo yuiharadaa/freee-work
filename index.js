@@ -1,5 +1,5 @@
 // index.js v32（退勤確定のみ描画／最新退勤が上／高さは人数分）
-console.log('[INDEX.JS] Chart.js v34');
+console.log('[INDEX.JS] Chart.js v35');
 
 const OPEN_HOUR = 9;
 const CLOSE_HOUR = 22;
@@ -196,46 +196,50 @@ function classToPosName(cls){
   return 'レジ';
 }
 
-// ===== v34: 空なら破棄＆超コンパクト、差分なければ更新しない =====
+// ===== v35: データ有無で描画/破棄を切替。ラベル未指定でも描ける =====
 function renderChartFromIntervals(intervalsByEmp, orderedLabels){
   const canvas = document.getElementById('ganttCanvas');
   const emptyMsg = document.getElementById('ganttEmpty');
   if (!canvas) return;
 
-  const names = orderedLabels ?? [];
-  const rows = names.length;
-
-  // データセット作成（中身だけ使ってシグネチャ作る）
+  // dataset を先に作って「本当にデータがあるか」を判定
   const datasets = toChartDatasets(intervalsByEmp);
+  const totalBars = datasets.reduce((n, ds) => n + (ds.data?.length || 0), 0);
+
+  // Y軸ラベル：指定が無ければ intervals から抽出
+  let names = Array.isArray(orderedLabels) ? orderedLabels.slice() : [];
+  if (!names.length) {
+    const set = new Set();
+    intervalsByEmp.forEach(info => set.add(info.name));
+    names = Array.from(set);
+  }
+
+  // ---- 完全に空：チャート破棄＆小さく ----
+  if (totalBars === 0 || names.length === 0) {
+    if (ganttChart) { ganttChart.destroy(); ganttChart = null; }
+    canvas.style.height = '80px';     // 空は極小
+    const ctx = canvas.getContext('2d');
+    ctx && ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (emptyMsg) emptyMsg.style.display = 'block';
+    lastSig = 'EMPTY';
+    return;
+  }
+
+  // ---- データあり：高さを人数で可変、差分がなければ再描画しない ----
   const sig = JSON.stringify({
     names,
     ds: datasets.map(d => ({ label: d.label, n: d.data.length }))
   });
-
-  // 同じ内容なら何もしない（チラつき防止）
   if (sig === lastSig) {
-    if (emptyMsg) emptyMsg.style.display = rows ? 'none' : 'block';
-    return;
+    if (emptyMsg) emptyMsg.style.display = 'none';
+    return;                // 同一内容なら何もしない（チカチカ防止）
   }
   lastSig = sig;
 
-  // 空のときは Chart.js を破棄して「小さい空カード」にする
-  if (rows === 0) {
-    if (ganttChart) { ganttChart.destroy(); ganttChart = null; }
-    canvas.style.height = '80px'; // 超コンパクト
-    // うっすら案内を描く（任意）
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    if (emptyMsg) emptyMsg.style.display = 'block';
-    return;
-  }
-
-  // データがあるときは行数に応じて高さを伸ばす
   const ROW_HEIGHT = 34, BASE = 48;
-  canvas.style.height = `${BASE + rows * ROW_HEIGHT}px`;
+  canvas.style.height = `${BASE + names.length * ROW_HEIGHT}px`;
 
-  const {min,max} = dayBoundsISO();
-
+  const {min, max} = dayBoundsISO();
   const config = {
     type: 'bar',
     data: { datasets },
@@ -272,7 +276,7 @@ function renderChartFromIntervals(intervalsByEmp, orderedLabels){
         tooltip: {
           callbacks: {
             label(ctx){
-              const [s,e]=ctx.raw.x;
+              const [s,e] = ctx.raw.x;
               const a = luxon.DateTime.fromISO(s).toFormat('HH:mm');
               const b = luxon.DateTime.fromISO(e).toFormat('HH:mm');
               return `${ctx.dataset.label} ${a}–${b}`;
@@ -293,6 +297,7 @@ function renderChartFromIntervals(intervalsByEmp, orderedLabels){
 
   if (emptyMsg) emptyMsg.style.display = 'none';
 }
+
 
 /* ====== 正規化＆ユーティリティ ====== */
 function normalizeEmployees(raw) {
