@@ -163,8 +163,10 @@ function dayBoundsISO(d=new Date()){
     max: new Date(y,m,day,CLOSE_HOUR,0,0).toISOString()
   };
 }
+
 function toChartDatasets(intervalsByEmp){
   const byPos = new Map();
+
   intervalsByEmp.forEach(info=>{
     // 勤務（確定のみ）
     info.work.forEach(seg=>{
@@ -197,10 +199,13 @@ function toChartDatasets(intervalsByEmp){
       data,
       parsing: { xAxisKey: 'x', yAxisKey: 'y' },
       xAxisID: 'xBottom',
+      stack: 'timeline',           // 全データセット同一の stack 名
+      barThickness: 14,
+      categoryPercentage: 0.9,     // 行の占有率（1.0だと窮屈）
+      barPercentage: 1.0,
       borderSkipped: false,
       borderWidth: 0,
       backgroundColor: POS_COLOR[posName] || '#999',
-      barThickness: 14,
     });
   });
   return datasets;
@@ -254,7 +259,7 @@ function renderChartFromIntervals(intervalsByEmp, orderedLabels){
   }
   lastSig = sig;
 
-  const ROW_HEIGHT = 34, BASE = 48;
+  const ROW_HEIGHT = 22, BASE = 36;
   canvas.style.height = `${BASE + names.length * ROW_HEIGHT}px`;
 
   const {min, max} = dayBoundsISO();
@@ -266,6 +271,10 @@ function renderChartFromIntervals(intervalsByEmp, orderedLabels){
       responsive: true,
       maintainAspectRatio: false,
       parsing: false,
+
+      animation: false,
+      transitions: { active: { animation: { duration: 0 } } },
+
       scales: {
         xBottom: {
           type: 'time',
@@ -273,7 +282,8 @@ function renderChartFromIntervals(intervalsByEmp, orderedLabels){
           min, max,
           time: { unit: 'hour', displayFormats: { hour: 'HH:mm' } },
           grid: { drawOnChartArea: true },
-          ticks: { maxRotation: 0 }
+          ticks: { maxRotation: 0 },
+          stacked: true 
         },
         xTop: {
           type: 'time',
@@ -281,12 +291,14 @@ function renderChartFromIntervals(intervalsByEmp, orderedLabels){
           min, max,
           time: { unit: 'hour', displayFormats: { hour: 'HH:mm' } },
           grid: { drawOnChartArea: false },
-          ticks: { maxRotation: 0 }
+          ticks: { maxRotation: 0 },
+          stacked: true 
         },
         y: {
           type: 'category',
           labels: names,
-          grid: { drawBorder: false }
+          grid: { drawBorder: false },
+          stacked: true 
         }
       },
       plugins: {
