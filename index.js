@@ -1,5 +1,5 @@
 // index.js v32（退勤確定のみ描画／最新退勤が上／高さは人数分）
-console.log('[INDEX.JS] Chart.js v33');
+console.log('[INDEX.JS] Chart.js v34');
 
 const OPEN_HOUR = 9;
 const CLOSE_HOUR = 22;
@@ -18,6 +18,7 @@ const POS_COLOR = {
 
 // Chart.js インスタンスと制御フラグ
 let ganttChart = null;
+let lastSig = '';            // 前回描画のシグネチャ（差分検出用）
 let refreshing = false;
 let queued = false;
 let lastBC = 0;
@@ -195,28 +196,45 @@ function classToPosName(cls){
   return 'レジ';
 }
 
+// ===== v34: 空なら破棄＆超コンパクト、差分なければ更新しない =====
 function renderChartFromIntervals(intervalsByEmp, orderedLabels){
   const canvas = document.getElementById('ganttCanvas');
   const emptyMsg = document.getElementById('ganttEmpty');
   if (!canvas) return;
 
   const names = orderedLabels ?? [];
-
-  // 高さ：空は小さく、データがあるときは人数に応じて伸ばす
-  const EMPTY_HEIGHT = 100;   // データ0件のときの高さ（小さめ）
-  const ROW_HEIGHT   = 34;    // 1人あたりの追加高さ
-  const BASE_PAD     = 48;    // 軸ラベル等の余白ぶん
   const rows = names.length;
 
-  canvas.style.height = rows === 0
-    ? `${EMPTY_HEIGHT}px`
-    : `${BASE_PAD + rows * ROW_HEIGHT}px`;
+  // データセット作成（中身だけ使ってシグネチャ作る）
+  const datasets = toChartDatasets(intervalsByEmp);
+  const sig = JSON.stringify({
+    names,
+    ds: datasets.map(d => ({ label: d.label, n: d.data.length }))
+  });
+
+  // 同じ内容なら何もしない（チラつき防止）
+  if (sig === lastSig) {
+    if (emptyMsg) emptyMsg.style.display = rows ? 'none' : 'block';
+    return;
+  }
+  lastSig = sig;
+
+  // 空のときは Chart.js を破棄して「小さい空カード」にする
+  if (rows === 0) {
+    if (ganttChart) { ganttChart.destroy(); ganttChart = null; }
+    canvas.style.height = '80px'; // 超コンパクト
+    // うっすら案内を描く（任意）
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    if (emptyMsg) emptyMsg.style.display = 'block';
+    return;
+  }
+
+  // データがあるときは行数に応じて高さを伸ばす
+  const ROW_HEIGHT = 34, BASE = 48;
+  canvas.style.height = `${BASE + rows * ROW_HEIGHT}px`;
 
   const {min,max} = dayBoundsISO();
-  const datasets = toChartDatasets(intervalsByEmp);
-
-  // 空表示は y軸を隠してコンパクトに（時間軸は残す or 隠すは好みで）
-  const showY = rows > 0;
 
   const config = {
     type: 'bar',
@@ -246,39 +264,34 @@ function renderChartFromIntervals(intervalsByEmp, orderedLabels){
         y: {
           type: 'category',
           labels: names,
-          display: showY,           // ← データ0件ならラベル欄を非表示に
           grid: { drawBorder: false }
         }
       },
       plugins: {
         legend: { position: 'bottom' },
         tooltip: {
-          enabled: rows > 0,        // 空のときはツールチップも不要
-          callbacks: rows > 0 ? {
+          callbacks: {
             label(ctx){
               const [s,e]=ctx.raw.x;
               const a = luxon.DateTime.fromISO(s).toFormat('HH:mm');
               const b = luxon.DateTime.fromISO(e).toFormat('HH:mm');
               return `${ctx.dataset.label} ${a}–${b}`;
             }
-          } : {}
+          }
         }
       }
     }
   };
 
   if (ganttChart) {
-    // 既存インスタンス更新
     ganttChart.data = config.data;
     ganttChart.options = config.options;
     ganttChart.update();
   } else {
-    // 初期生成
     ganttChart = new Chart(canvas.getContext('2d'), config);
   }
 
-  // 空表示メッセージ
-  if (emptyMsg) emptyMsg.style.display = rows ? 'none' : 'block';
+  if (emptyMsg) emptyMsg.style.display = 'none';
 }
 
 /* ====== 正規化＆ユーティリティ ====== */

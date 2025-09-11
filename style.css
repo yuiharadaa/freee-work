@@ -86,7 +86,7 @@ body{
 .gantt-canvas{
   display: block;
   width: 100%;
-  min-height: 80px;
+  min-height: 0;
   background: #fff;
   border: 1px solid var(--border);
   border-radius: var(--radius);
