@@ -1,3 +1,5 @@
+// detail.js v35（退勤成功時に BroadcastChannel 送信）
+
 let current = null;
 
 window.addEventListener('DOMContentLoaded', init);
@@ -26,7 +28,7 @@ async function refreshUI() {
   await renderActionButtons();
 }
 
-/** 今の状態を調査 */
+/** 今の状態を調査してボタンを出す */
 async function renderActionButtons() {
   const container = document.getElementById('actionButtons');
   container.textContent = '…';
@@ -40,7 +42,7 @@ async function renderActionButtons() {
       const btn = document.createElement('button');
       btn.textContent = action;
 
-      // アクションに応じてクラスを付与
+      // 見た目のクラス（例）
       switch (action) {
         case '出勤':     btn.className = 'btn-shukkin'; break;
         case '退勤':     btn.className = 'btn-taikin'; break;
@@ -75,7 +77,21 @@ async function onPunchAction(action) {
       punchType: action,
       position
     });
+
     status.textContent = `打刻完了: ${saved.date} ${saved.time} / ${saved.punchType} / ${saved.position}`;
+
+    // ★ 退勤に成功したらホームへ通知（ガント再描画用）
+    if (action === '退勤') {
+      try {
+        const bc = new BroadcastChannel('punch');
+        bc.postMessage({ kind: 'punch', punchType: '退勤', at: new Date().toISOString() });
+        bc.close();
+      } catch (e) {
+        // BroadcastChannel未対応でもOK（無視）
+        console.warn('[DETAIL] BC send failed:', e);
+      }
+    }
+
     await refreshUI(); // 履歴とボタンを更新
   } catch (e) {
     console.error(e);
@@ -89,7 +105,7 @@ function getLastEvent(rows) {
   const withTs = rows.map(r => ({ ...r, __ts: toTimestamp(r.date, r.time) }))
                     .filter(r => !Number.isNaN(r.__ts));
   if (withTs.length === 0) return null;
-  withTs.sort((a, b) => b.__ts - a.__ts); // 降順＝新しい順
+  withTs.sort((a, b) => b.__ts - a.__ts); // 新しい順
   return withTs[0];
 }
 

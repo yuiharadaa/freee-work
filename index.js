@@ -1,5 +1,6 @@
-// index.js v32（退勤確定のみ描画／最新退勤が上／高さは人数分）
-console.log('[INDEX.JS] Chart.js v35');
+// index.js v36（退勤確定のみ描画／最新退勤が上／高さは人数分／空は極小／安定BC）
+
+console.log('[INDEX.JS] Chart.js v36');
 
 const OPEN_HOUR = 9;
 const CLOSE_HOUR = 22;
@@ -21,37 +22,52 @@ let ganttChart = null;
 let lastSig = '';            // 前回描画のシグネチャ（差分検出用）
 let refreshing = false;
 let queued = false;
-let lastBC = 0;
+
+// BroadcastChannel 制御
+let bc; 
+let bcTimer = null;
+const BC_DEBOUNCE_MS = 300;
 const BC_THROTTLE_MS = 2000;
+let lastBC = 0;
 
 window.addEventListener('DOMContentLoaded', async () => {
   await renderEmployeeList();
 
   // 初期は空表示（誰も退勤していない前提で描画しない）
-  renderChartFromIntervals(new Map(), /*labels*/[]);
+  renderChartFromIntervals(new Map(), []);
 
-  // 退勤時のみ再描画（当日）
+  // ★ページを開いた時点で既に退勤者がいる場合に備えて1回だけ取得して描く
+  await requestRefresh('init');
+
+  // 退勤時のみ再描画（当日判定・スロットル・デバウンス付き）
   try {
-    const bc = new BroadcastChannel('punch');
-    bc.onmessage = (ev) => {
+    if (!bc) bc = new BroadcastChannel('punch');
+    bc.addEventListener('message', (ev) => {
       const d = ev?.data || {};
+      if (d.kind !== 'punch' || d.punchType !== '退勤') return;
+
       const at = d.at ? new Date(d.at) : new Date();
-      if (d.kind === 'punch' && d.punchType === '退勤' && ymd(at) === currentDay) {
-        const now = Date.now();
-        if (now - lastBC > BC_THROTTLE_MS) {
-          lastBC = now;
-          requestRefresh('bc');
-        }
-      }
-    };
-  } catch {}
+      if (ymd(at) !== currentDay) return;  // 当日以外は無視
+
+      const now = Date.now();
+      if (now - lastBC < BC_THROTTLE_MS) return;
+      lastBC = now;
+
+      clearTimeout(bcTimer);
+      bcTimer = setTimeout(() => {
+        requestRefresh('bc');
+      }, BC_DEBOUNCE_MS);
+    });
+  } catch (e) {
+    console.warn('[BC] init failed', e);
+  }
 
   // 0:00で日替わりリセット（前日は表示しない）
   setMidnightTimer();
 });
 
 /* ====== リフレッシュ制御 ====== */
-async function requestRefresh(src='unknown') {
+async function requestRefresh(_src='unknown') {
   if (refreshing) { queued = true; return; }
   refreshing = true;
   try {
@@ -68,7 +84,9 @@ function setMidnightTimer() {
   const next = new Date(now.getFullYear(), now.getMonth(), now.getDate()+1, 0,0,0);
   setTimeout(() => {
     currentDay = ymd(new Date());
-    renderChartFromIntervals(new Map(), []); // 空
+    // 新しい日：完全に空で極小表示
+    lastSig = 'EMPTY';
+    renderChartFromIntervals(new Map(), []);
     setMidnightTimer();
   }, next - now);
 }
@@ -128,7 +146,7 @@ async function refreshGantt() {
     // 区間化（未退勤は含めない＝描画しない）
     const { intervalsByEmp, orderLabels } = buildClosedIntervalsAndOrder(allRows);
 
-    // 描画（順序は orderLabels に合わせる）
+    // 描画（順序は orderLabels に合わせる／フォールバック付き）
     renderChartFromIntervals(intervalsByEmp, orderLabels);
 
   } catch (e) {
@@ -196,7 +214,7 @@ function classToPosName(cls){
   return 'レジ';
 }
 
-// ===== v35: データ有無で描画/破棄を切替。ラベル未指定でも描ける =====
+// ===== v36: データ有無で描画/破棄を切替。ラベル未指定でも描ける／差分更新 =====
 function renderChartFromIntervals(intervalsByEmp, orderedLabels){
   const canvas = document.getElementById('ganttCanvas');
   const emptyMsg = document.getElementById('ganttEmpty');
@@ -217,7 +235,7 @@ function renderChartFromIntervals(intervalsByEmp, orderedLabels){
   // ---- 完全に空：チャート破棄＆小さく ----
   if (totalBars === 0 || names.length === 0) {
     if (ganttChart) { ganttChart.destroy(); ganttChart = null; }
-    canvas.style.height = '80px';     // 空は極小
+    canvas.style.height = '80px'; // 空は極小
     const ctx = canvas.getContext('2d');
     ctx && ctx.clearRect(0, 0, canvas.width, canvas.height);
     if (emptyMsg) emptyMsg.style.display = 'block';
@@ -232,7 +250,7 @@ function renderChartFromIntervals(intervalsByEmp, orderedLabels){
   });
   if (sig === lastSig) {
     if (emptyMsg) emptyMsg.style.display = 'none';
-    return;                // 同一内容なら何もしない（チカチカ防止）
+    return; // 同一内容なら何もしない（チラつき防止）
   }
   lastSig = sig;
 
@@ -297,7 +315,6 @@ function renderChartFromIntervals(intervalsByEmp, orderedLabels){
 
   if (emptyMsg) emptyMsg.style.display = 'none';
 }
-
 
 /* ====== 正規化＆ユーティリティ ====== */
 function normalizeEmployees(raw) {
