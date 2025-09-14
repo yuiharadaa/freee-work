@@ -14,9 +14,10 @@ const POS_COLOR = {
   休憩:       '#9ca3af',
 };
 
-const ROW_HEIGHT = 22;   // 1行の高さ
-const BASE_HEIGHT = 36;  // 軸・凡例分のベース
+const ROW_HEIGHT = 35;   // 各行の高さ
+const BASE_HEIGHT = 40;  // 時間軸などの固定スペース
 const EMPTY_HEIGHT_PX = 80; // 空表示の極小高さ
+const MAX_HEIGHT_PX = 800; // 最大高さ制限（無限成長防止）
 
 // BroadcastChannel
 const BC_CHANNEL_NAME = 'punch';
@@ -40,6 +41,12 @@ window.addEventListener('DOMContentLoaded', async () => {
   await renderEmployeeList();
 
   // 初期は空（誰も退勤してない想定でも破綻しない）
+  const canvas = document.getElementById('ganttCanvas');
+  if (canvas) {
+    canvas.style.height = `${EMPTY_HEIGHT_PX}px`; // 初期高さを明示的に設定
+    canvas.style.maxHeight = `${EMPTY_HEIGHT_PX}px`;
+    canvas.style.overflow = 'hidden';
+  }
   renderChartFromIntervals(new Map(), []);
 
   // 初期同期：開いた時点で既に退勤者がいる場合に描画
@@ -167,6 +174,27 @@ async function refreshGantt() {
 }
 
 /**
+ * ポジション名をCSSクラス名に変換
+ */
+function posClassName(position) {
+  if (!position) return 'pos-reji';
+
+  const posMap = {
+    'レジ': 'pos-reji',
+    'ドリンク': 'pos-drink',
+    'フライヤー': 'pos-fry',
+    'バーガー': 'pos-burger',
+    'reji': 'pos-reji',
+    'drink': 'pos-drink',
+    'fry': 'pos-fry',
+    'burger': 'pos-burger'
+  };
+
+  const normalized = position.toLowerCase().trim();
+  return posMap[position] || posMap[normalized] || 'pos-reji';
+}
+
+/**
  * rows から「確定した勤務・休憩区間」のみを構築し、
  * 直近退勤時刻の降順（最新が上）でラベル順序を返す
  */
@@ -264,10 +292,7 @@ function renderChartFromIntervals(intervalsByEmp, orderedLabels) {
   const emptyMsg = document.getElementById('ganttEmpty');
   if (!canvas) return;
 
-  const datasets = toChartDatasets(intervalsByEmp);
-  const totalBars = datasets.reduce((n, ds) => n + (ds.data?.length || 0), 0);
-
-  // ラベル（指定なければ intervals から抽出）
+  // ラベル（名前）を準備
   let names = Array.isArray(orderedLabels) ? orderedLabels.slice() : [];
   if (!names.length) {
     const set = new Set();
@@ -275,137 +300,173 @@ function renderChartFromIntervals(intervalsByEmp, orderedLabels) {
     names = Array.from(set);
   }
 
-  // ---- 完全に空：チャート破棄＆極小表示 ----
+  // データセットを作成
+  const datasets = toChartDatasets(intervalsByEmp);
+  const totalBars = datasets.reduce((n, ds) => n + (ds.data?.length || 0), 0);
+
+  // ---- 完全に空：チャート破棄 ----
   if (totalBars === 0 || names.length === 0) {
-    if (ganttChart) { ganttChart.destroy(); ganttChart = null; }
+    if (ganttChart) {
+      ganttChart.destroy();
+      ganttChart = null;
+    }
     canvas.style.height = `${EMPTY_HEIGHT_PX}px`;
     const ctx = canvas.getContext('2d');
-    ctx && ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
     if (emptyMsg) emptyMsg.style.display = 'block';
     lastSig = 'EMPTY';
     return;
   }
 
-  // ---- 高さ：人数で可変（※属性 canvas.height は触らない！） ----
-  const heightPx = BASE_HEIGHT + names.length * ROW_HEIGHT;
-  const heightStr = `${heightPx}px`;
-  if (canvas.style.height !== heightStr) {
-    canvas.style.height = heightStr; // CSS だけを更新（Chart.js の推奨）
-  }
+  // ---- キャンバスの高さを固定 ----
+  const canvasHeight = Math.min(BASE_HEIGHT + names.length * ROW_HEIGHT, 600); // 最大600pxに制限
+  canvas.style.height = `${canvasHeight}px`;
+  canvas.style.maxHeight = `${canvasHeight}px`; // 最大高さも設定
+  canvas.style.overflow = 'hidden';
 
   // ---- 差分検出 ----
   const sig = makeSignature(names, datasets);
   if (sig === lastSig) {
     if (emptyMsg) emptyMsg.style.display = 'none';
-    return; // 変更なしなら更新しない
+    return;
   }
   lastSig = sig;
 
+  // 既存のチャートを必ず破棄
+  if (ganttChart) {
+    ganttChart.destroy();
+    ganttChart = null;
+  }
+
+  // 時間軸の範囲
   const { min, max } = dayBoundsISO();
+
+  // 固定サイズでチャートを作成
   const config = {
     type: 'bar',
-    data: { datasets },
+    data: {
+      labels: names,
+      datasets
+    },
     options: {
       indexAxis: 'y',
-      responsive: true,
+      responsive: false,  // 自動リサイズを無効化（重要）
       maintainAspectRatio: false,
-      parsing: false,
       animation: false,
-      transitions: { active: { animation: { duration: 0 } } },
-      resizeDelay: 150,
-      layout: { padding: 0 },
+      parsing: false,
+
+      // レイアウト設定
+      layout: {
+        padding: 10
+      },
 
       scales: {
-        xBottom: {
+        x: {
           type: 'time',
-          position: 'bottom',
-          min, max,
-          time: { unit: 'hour', displayFormats: { hour: 'HH:mm' } },
-          grid: { drawOnChartArea: true },
-          ticks: { maxRotation: 0 },
+          min,
+          max,
+          time: {
+            unit: 'hour',
+            displayFormats: { hour: 'HH:mm' }
+          },
           stacked: true,
-        },
-        xTop: {
-          type: 'time',
-          position: 'top',
-          min, max,
-          time: { unit: 'hour', displayFormats: { hour: 'HH:mm' } },
-          grid: { drawOnChartArea: false },
-          ticks: { maxRotation: 0 },
-          stacked: true,
+          grid: {
+            display: true,
+            color: 'rgba(0, 0, 0, 0.1)'
+          },
+          ticks: {
+            font: { size: 10 }
+          }
         },
         y: {
-          type: 'category',
-          labels: names,
-          grid: { drawBorder: false },
-          ticks: { padding: 2 },
-          offset: false,
           stacked: true,
-        },
+          grid: {
+            display: false
+          },
+          ticks: {
+            font: { size: 10 },
+            padding: 5
+          }
+        }
       },
+
       plugins: {
-        legend: { position: 'bottom' },
+        legend: {
+          display: false
+        },
         tooltip: {
           callbacks: {
             label(ctx) {
               const [s, e] = ctx.raw.x;
-              const a = luxon.DateTime.fromISO(s).toFormat('HH:mm');
-              const b = luxon.DateTime.fromISO(e).toFormat('HH:mm');
-              return `${ctx.dataset.label} ${a}–${b}`;
-            },
-          },
-        },
-      },
-    },
+              const start = luxon.DateTime.fromISO(s).toFormat('HH:mm');
+              const end = luxon.DateTime.fromISO(e).toFormat('HH:mm');
+              return `${ctx.dataset.label}: ${start} - ${end}`;
+            }
+          }
+        }
+      }
+    }
   };
 
-  // ---- 初期化 or 更新 ----
-  if (ganttChart) {
-    ganttChart.data = config.data;
-    ganttChart.options = config.options;
-    ganttChart.update('none'); // 無アニメ更新で安定
-  } else {
+  // responsiveがfalseの場合、明示的にサイズを設定
+  // ただし、親要素の幅を超えないようにする
+  const parent = canvas.parentElement;
+  const maxWidth = parent ? parent.clientWidth : 800;
+  canvas.width = Math.min(maxWidth, 800);  // 最大幅を制限
+  canvas.height = canvasHeight;
+
+  // チャートを作成
+  try {
     ganttChart = new Chart(canvas.getContext('2d'), config);
+    window.ganttChart = ganttChart;
+  } catch (error) {
+    console.error('Chart creation failed:', error);
   }
 
   if (emptyMsg) emptyMsg.style.display = 'none';
 }
 
 function toChartDatasets(intervalsByEmp) {
-  // 役割ごとに先にバケット作成（固定順）
+  // 役割ごとにデータを整理
   const byPos = new Map(POS_ORDER.map(p => [p, []]));
 
   intervalsByEmp.forEach(info => {
     const open = todayOpenMillis();
-    // 勤務（確定のみ）
+
+    // 勤務セグメント
     for (const seg of info.work) {
       const posName = classToPosName(seg.className);
       const arr = byPos.get(posName) || [];
-      arr.push({ x: [toISO(open, seg.startMin), toISO(open, seg.endMin)], y: info.name });
+      arr.push({
+        x: [toISO(open, seg.startMin), toISO(open, seg.endMin)],
+        y: info.name
+      });
       byPos.set(posName, arr);
     }
-    // 休憩（確定のみ）
+
+    // 休憩セグメント
     for (const seg of info.breaks) {
       const arr = byPos.get('休憩') || [];
-      arr.push({ x: [toISO(open, seg.startMin), toISO(open, seg.endMin)], y: info.name });
+      arr.push({
+        x: [toISO(open, seg.startMin), toISO(open, seg.endMin)],
+        y: info.name
+      });
       byPos.set('休憩', arr);
     }
   });
 
-  // 固定順で返す（空データセットは自動的に描画が薄い）
+  // データセットを作成（シンプルな設定）
   return POS_ORDER.map(posName => ({
-    type: 'bar',
     label: posName,
     data: byPos.get(posName) || [],
-    parsing: { xAxisKey: 'x', yAxisKey: 'y' },
-    xAxisID: 'xBottom',
-    stack: 'timeline',
-    barThickness: 10,
-    categoryPercentage: 0.65,
-    barPercentage: 1.0,
-    borderSkipped: false,
-    borderWidth: 0,
+    parsing: {
+      xAxisKey: 'x',
+      yAxisKey: 'y'
+    },
     backgroundColor: POS_COLOR[posName] || '#999',
+    barThickness: 30,  // 統一された太さ
+    borderWidth: 0,
+    borderSkipped: false
   }));
 }
 

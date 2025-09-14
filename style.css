@@ -35,7 +35,11 @@ body{
   .layout{ grid-template-columns: 1fr; }
 }
 .employee-list{ align-self: start; }
-.gantt-area{ align-self: start; }
+.gantt-area{
+  align-self: start;
+  overflow: hidden;  /* 無限成長を防ぐ */
+  max-width: 100%;
+}
 
 /* ===== カード ===== */
 .card{
@@ -86,12 +90,13 @@ body{
 .gantt-canvas{
   display: block;
   width: 100%;
-  min-height: 0;
   background: #fff;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  padding: 8px; 
+  padding: 0;
+  overflow: hidden;  /* オーバーフローを隠す */
+  box-sizing: border-box;
 }
 
 /* ===== detail用の共通（あれば） ===== */
