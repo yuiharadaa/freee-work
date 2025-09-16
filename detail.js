@@ -133,36 +133,132 @@ function decideNextByLastType(lastType) {
   }
 }
 
+// === ここからコピペ（detail.js 内の loadHistoryAndRender を置き換え）===
+
 async function loadHistoryAndRender() {
   const tbody = document.getElementById('historyBody');
   const tpl = document.getElementById('tpl-history-row');
   tbody.textContent = '';
 
-  // 当日の履歴を取得
+  // 1) 当日の履歴取得
   const rows = await API.fetchHistory({ employeeId: current.id, days: 1 });
+  // 安全のため時系列昇順に
+  rows.sort((a,b) => toTimestamp(a.date,a.time) - toTimestamp(b.date,b.time));
 
-  // 勤務時間と給与は退勤が確定している日のみ計算
-  const totalMin = sumWorkMinutes(rows);  // 分単位で勤務合計
-  const durStr = totalMin ? formatHours(totalMin) : '';
-  const pay = totalMin && current.hourlyWage
-    ? Math.floor(totalMin * current.hourlyWage / 60) // 分単位できっちり計算
+  // 2) 時給が current に無ければ補完（employee.list から引く）
+  if (current.hourlyWage == null) {
+    try {
+      const list = await API.fetchEmployees();
+      const me = Array.isArray(list) ? list.find(e => String(e.id) === String(current.id))
+                                     : (list.employees || []).find(e => String(e.id) === String(current.id));
+      if (me && me.hourlyWage != null) current.hourlyWage = Number(me.hourlyWage) || 0;
+    } catch (e) {
+      console.warn('[DETAIL] failed to backfill hourlyWage', e);
+      current.hourlyWage = 0;
+    }
+  }
+
+  // 3) 勤務合計（分）を「退勤で閉じた分だけ」計算
+  const totalMin = computeClosedWorkMinutes(rows); // 分
+  const durStr = totalMin > 0 ? formatHoursEn(totalMin) : ''; // "7h30m"
+  // 分単位できっちり計算（切り捨て）
+  const pay = (totalMin > 0 && current.hourlyWage > 0)
+    ? Math.floor(totalMin * current.hourlyWage / 60)
     : 0;
-  const payStr = pay ? `¥${formatJPY(pay)}` : '';
+  const payStr = pay > 0 ? `¥${formatJPY(pay)}` : '';
 
+  // 4) テーブル描画：退勤行にだけ勤務時間と給与を出す
   rows.forEach(r => {
     const node = tpl.content.cloneNode(true);
     node.querySelector('.c-date').textContent = r.date;
     node.querySelector('.c-time').textContent = r.time;
     node.querySelector('.c-type').textContent = r.punchType;
     node.querySelector('.c-pos').textContent  = r.position;
-    // 「退勤」行のときだけ勤務時間と給与を表示
+
     if (r.punchType === '退勤') {
       node.querySelector('.c-dur').textContent = durStr;
       node.querySelector('.c-pay').textContent = payStr;
     }
     tbody.appendChild(node);
   });
+
+  // 退勤がまだ無い場合でも「枠」は出したいなら、最後に空行を1つ足す
+  if (!rows.some(r => r.punchType === '退勤')) {
+    const node = tpl.content.cloneNode(true);
+    // 日付・時刻・種別・ポジションは空、勤務時間と給与も空のまま
+    tbody.appendChild(node);
+  }
 }
+
+/* ===== ここから下はこのファイルに無ければ一緒に貼ってOK（重複があれば既存を優先） ===== */
+
+// 退勤で閉じた勤務だけを合計（分）
+function computeClosedWorkMinutes(rowsAsc) {
+  let total = 0;
+  let start = null;      // 勤務開始 ts
+  let onBreak = false;   // 休憩中フラグ（明示的には不要だが可読性用）
+
+  for (const r of rowsAsc) {
+    const ts = toTimestamp(r.date, r.time);
+    switch (r.punchType) {
+      case '出勤':
+        start = ts;
+        onBreak = false;
+        break;
+      case '休憩開始':
+        if (start != null) {
+          total += Math.max(0, Math.floor((ts - start) / 60000)); // 分
+          start = null;   // 勤務一区切り
+        }
+        onBreak = true;
+        break;
+      case '休憩終了':
+        start = ts;       // 勤務再開
+        onBreak = false;
+        break;
+      case '退勤':
+        if (start != null) {
+          total += Math.max(0, Math.floor((ts - start) / 60000)); // 分
+          start = null;
+        }
+        onBreak = false;
+        break;
+    }
+  }
+  // 未退勤分はカウントしない（start が残っていても無視）
+  return total;
+}
+
+// "7h30m" 表記（日本語にしたいなら formatHoursJa に差し替え）
+function formatHoursEn(mins) {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m ? `${h}h${String(m).padStart(2,'0')}m` : `${h}h`;
+}
+function formatHoursJa(mins) {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return h ? `${h}時間${m}分` : `${m}分`;
+}
+
+function formatJPY(n) {
+  return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+// 既存 toTimestamp を利用（無い場合だけ）
+if (typeof toTimestamp !== 'function') {
+  function toTimestamp(dateStr, timeStr) {
+    const d = String(dateStr || '').trim().replace(/\./g, '-').replace(/\//g, '-');
+    let t = String(timeStr || '00:00:00').trim();
+    const parts = t.split(':').map(x => x.padStart(2, '0'));
+    while (parts.length < 3) parts.push('00');
+    t = parts.slice(0,3).join(':');
+    return new Date(`${d}T${t}`).getTime();
+  }
+}
+
+// === ここまでコピペ ===
+
 
 
 /* === 区間ごとの勤務時間(ms)を計算 ===
@@ -241,5 +337,31 @@ function calcWorkTotal(rowsAsc) {
     }
   });
 
+  return total;
+}
+
+/** 本日の勤務合計（分単位、休憩は除外、退勤で閉じた分だけ） */
+function sumWorkMinutes(rowsAsc) {
+  let total = 0;
+  let start = null;
+
+  for (const r of rowsAsc) {
+    const ts = toTimestamp(r.date, r.time);
+    switch (r.punchType) {
+      case '出勤':
+      case '休憩終了':
+        start = ts;
+        break;
+
+      case '休憩開始':
+      case '退勤':
+        if (start != null) {
+          total += Math.max(0, Math.floor((ts - start) / 60000)); // 分
+          start = null;
+        }
+        break;
+    }
+  }
+  // 退勤で閉じられていない勤務は無視（未確定なので）
   return total;
 }
