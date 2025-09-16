@@ -134,68 +134,36 @@ function decideNextByLastType(lastType) {
 }
 
 async function loadHistoryAndRender() {
-  const tbody   = document.getElementById('historyBody');
-  const tplRow  = document.getElementById('tpl-history-row');
-  const totalEl = document.getElementById('workTotal'); // あれば本日の合計も更新
+  const tbody = document.getElementById('historyBody');
+  const tpl = document.getElementById('tpl-history-row');
+  tbody.textContent = '';
 
-  tbody.textContent = '読み込み中…';
-  try {
-    const rows = await API.fetchHistory({ employeeId: current.id, days: 30 });
+  // 当日の履歴を取得
+  const rows = await API.fetchHistory({ employeeId: current.id, days: 1 });
 
-    // 表示用は新しい順（降順）
-    const rowsDesc = rows.slice().sort((a, b) => (toTimestamp(a.date,a.time) < toTimestamp(b.date,b.time) ? 1 : -1));
+  // 勤務時間と給与は退勤が確定している日のみ計算
+  const totalMin = sumWorkMinutes(rows);  // 分単位で勤務合計
+  const durStr = totalMin ? formatHours(totalMin) : '';
+  const pay = totalMin && current.hourlyWage
+    ? Math.floor(totalMin * current.hourlyWage / 60) // 分単位できっちり計算
+    : 0;
+  const payStr = pay ? `¥${formatJPY(pay)}` : '';
 
-    // 勤務区間の所要時間（ms）を計算：昇順で走査して
-    // 「出勤/休憩終了」→「休憩開始/退勤」で閉じる区間のみ算出
-    const rowsAsc = rows.slice().sort((a, b) => toTimestamp(a.date,a.time) - toTimestamp(b.date,b.time));
-    const durMap  = buildWorkDurations(rowsAsc); // key: `${YYYY-MM-DD} ${HH:MM:SS} ${種別}` -> ms
-
-    const frag = document.createDocumentFragment();
-    rowsDesc.forEach(r => {
-      const tr = tplRow.content.cloneNode(true);
-      tr.querySelector('.c-date').textContent = API.escapeHtml(r.date);
-      tr.querySelector('.c-time').textContent = API.escapeHtml(r.time);
-      tr.querySelector('.c-type').textContent = API.escapeHtml(r.punchType);
-      tr.querySelector('.c-pos').textContent  = API.escapeHtml(r.position);
-
-      // この行（イベント）が区間の“終点”なら勤務時間を表示
-      const key = makeEventKey(r.date, r.time, r.punchType);
-      const ms  = durMap.get(key);
-      tr.querySelector('.c-dur').textContent = ms ? formatHm(ms) : '';
-
-      frag.appendChild(tr);
-    });
-
-    tbody.textContent = '';
-    if (rowsDesc.length === 0) {
-      const empty = document.createElement('tr');
-      empty.innerHTML = `<td colspan="5">履歴はありません。</td>`;
-      tbody.appendChild(empty);
-      if (totalEl) totalEl.textContent = '0時間0分';
-    } else {
-      tbody.appendChild(frag);
-
-      // ★（任意）本日の合計勤務時間（休憩は除外）
-      if (totalEl) {
-        const today = ymd(new Date());
-        const todayAsc = rows
-          .filter(r => normalizeDate(r.date) === today)
-          .sort((a, b) => toTimestamp(a.date,a.time) - toTimestamp(b.date,b.time));
-        const totalMs = calcWorkTotal(todayAsc);
-        const h = Math.floor(totalMs / 1000 / 60 / 60);
-        const m = Math.floor(totalMs / 1000 / 60) % 60;
-        totalEl.textContent = `${h}時間${m}分`;
-      }
+  rows.forEach(r => {
+    const node = tpl.content.cloneNode(true);
+    node.querySelector('.c-date').textContent = r.date;
+    node.querySelector('.c-time').textContent = r.time;
+    node.querySelector('.c-type').textContent = r.punchType;
+    node.querySelector('.c-pos').textContent  = r.position;
+    // 「退勤」行のときだけ勤務時間と給与を表示
+    if (r.punchType === '退勤') {
+      node.querySelector('.c-dur').textContent = durStr;
+      node.querySelector('.c-pay').textContent = payStr;
     }
-  } catch (e) {
-    console.error(e);
-    tbody.textContent = '';
-    const err = document.createElement('tr');
-    err.innerHTML = `<td colspan="5">履歴の取得に失敗しました。</td>`;
-    tbody.appendChild(err);
-    if (totalEl) totalEl.textContent = '-';
-  }
+    tbody.appendChild(node);
+  });
 }
+
 
 /* === 区間ごとの勤務時間(ms)を計算 ===
    ・出勤/休憩終了 で start

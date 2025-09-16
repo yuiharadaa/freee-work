@@ -264,19 +264,19 @@ function buildClosedIntervalsAndOrder(rows) {
                 endMin: minutesFromOpen(seg.end),
                 className: posClassName(currentPos),
               });
-              lastEndTS = t.getTime();
             }
             currentStart = null;
             breakStart = null;
           }
+          lastEndTS = t.getTime(); // ← ここを必ず実行
           break;
       }
     }
 
-    // 未退勤の勤務は push しない（確定していない）
-    if (workClosed.length || breakClosed.length) {
+       // ★退勤がなければ描画しない
+    if (lastEndTS && (workClosed.length || breakClosed.length)) {
       result.set(empId, { name, work: workClosed, breaks: breakClosed });
-      order.push({ name, lastEndTS: lastEndTS ?? 0 });
+      order.push({ name, lastEndTS });
     }
   });
 
@@ -524,7 +524,7 @@ function dayBoundsISO(d = new Date()) {
   const y = d.getFullYear(), m = d.getMonth(), day = d.getDate();
   return {
     min: new Date(y, m, day, OPEN_HOUR, 0, 0).toISOString(),
-    max: new Date(y, m, day, CLOSE_HOUR, 0, 0).toISOString(),
+    max: new Date(y, m, day, 23, 0, 0).toISOString(),
   };
 }
 function todayOpenMillis() {
