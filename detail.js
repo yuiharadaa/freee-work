@@ -136,28 +136,26 @@ function decideNextByLastType(lastType) {
   }
 }
 
-/** 当日の履歴テーブル描画（最新を上に／退勤行にのみ 勤務時間&給与を表示） */
+// 置き換え：loadHistoryAndRender を丸ごと差し替え
 async function loadHistoryAndRender() {
   const tbody = document.getElementById('historyBody');
   const tpl = document.getElementById('tpl-history-row');
   tbody.textContent = '';
 
-  // 当日の履歴を取得
-  const rows = await API.fetchHistory({ employeeId: current.id, days: 1 });
+  // ★ 直近31日を取得
+  const rows = await API.fetchHistory({ employeeId: current.id, days: 31 });
 
   // 計算は昇順、表示は降順（最新が上）
   const rowsAsc  = [...rows].sort((a,b) => toTimestamp(a.date,a.time) - toTimestamp(b.date,b.time));
   const rowsDesc = [...rowsAsc].reverse();
 
-  // 退勤がある日のみ、分単位で勤務合計＆給与を算出
-  const hasTaikin = rowsAsc.some(r => r.punchType === '退勤');
-  const totalMin  = hasTaikin ? sumWorkMinutes(rowsAsc) : 0; // 分
-  const durStr    = totalMin > 0 ? formatHoursEn(totalMin) : '';
-  const wage      = Number(current?.hourlyWage) || 0;
-  const pay       = (totalMin > 0 && wage > 0) ? Math.floor(totalMin * wage / 60) : 0;
-  const payStr    = pay > 0 ? `¥${formatJPY(pay)}` : '';
+  // 当日のみじゃなく「日付ごと」に勤務合計を出す
+  const byDate = groupBy(rowsAsc, r => normalizeDate(r.date)); // { 'YYYY-MM-DD': [...] }
 
-  // 表示（最新が上）
+  // 念のため時給確認（0のときは表示空欄になる）
+  const wage = Number(current?.hourlyWage) || 0;
+  console.debug('[DETAIL] wage=', wage);
+
   rowsDesc.forEach(r => {
     const node = tpl.content.cloneNode(true);
     node.querySelector('.c-date').textContent = r.date;
@@ -165,20 +163,43 @@ async function loadHistoryAndRender() {
     node.querySelector('.c-type').textContent = r.punchType;
     node.querySelector('.c-pos').textContent  = r.position;
 
-    // 退勤行にだけ勤務時間と給与を表示
+    // 退勤行のとき、その日（r.date）の勤務合計と給与を表示
     if (r.punchType === '退勤') {
-      node.querySelector('.c-dur').textContent = durStr;
-      node.querySelector('.c-pay').textContent = payStr;
+      const key = normalizeDate(r.date);
+      const minutes = sumWorkMinutes(byDate.get(key) || []);
+      if (minutes > 0 && wage > 0) {
+        const pay = Math.floor(minutes * wage / 60); // 分単位きっちり
+        node.querySelector('.c-dur').textContent = formatHoursEn(minutes);
+        node.querySelector('.c-pay').textContent = `¥${formatJPY(pay)}`;
+      } else {
+        // 勤務未確定 or 時給0 の場合は空欄
+        node.querySelector('.c-dur').textContent = '';
+        node.querySelector('.c-pay').textContent = '';
+      }
     }
+
     tbody.appendChild(node);
   });
 
-  // 退勤が無い場合でも枠だけ欲しければ空行を追加（任意）
-  if (!hasTaikin && rowsDesc.length === 0) {
+  // 履歴ゼロなら空行を1つ出しておく（任意）
+  if (rowsDesc.length === 0) {
     const node = tpl.content.cloneNode(true);
     tbody.appendChild(node);
   }
 }
+
+// ヘルパ：日付正規化＆グループ化（このファイルに無ければ追加）
+function normalizeDate(s) { return String(s || '').trim().replace(/\./g, '-').replace(/\//g, '-'); }
+function groupBy(arr, keyFn){
+  const m = new Map();
+  for (const x of arr) {
+    const k = keyFn(x);
+    if (!m.has(k)) m.set(k, []);
+    m.get(k).push(x);
+  }
+  return m;
+}
+
 
 /* ===== ヘルパ ===== */
 
