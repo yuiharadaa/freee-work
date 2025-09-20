@@ -1,5 +1,10 @@
-/* ===== ベース ===== */
-:root{
+/* ================================
+   勤怠管理システム スタイルシート
+   ================================ */
+
+/* ==================== CSS変数定義 ==================== */
+:root {
+  /* カラーパレット */
   --bg: #f8fafc;
   --card: #ffffff;
   --text: #0f172a;
@@ -8,87 +13,149 @@
   --shadow: 0 2px 8px rgba(0,0,0,.06);
   --radius: 12px;
 
-  /* ポジション色 */
-  --reji:   #2563eb; /* 青 */
-  --drink:  #16a34a; /* 緑 */
-  --fry:    #f59e0b; /* 黄 */
-  --burger: #ef4444; /* 赤 */
-  --break:  #9ca3af; /* グレー */
+  /* ポジション別カラー */
+  --reji: #2563eb;     /* レジ（青） */
+  --drink: #16a34a;    /* ドリンカー（緑） */
+  --fry: #f59e0b;      /* フライヤー（黄） */
+  --burger: #ef4444;   /* バーガー（赤） */
+  --break: #9ca3af;    /* 休憩（グレー） */
 }
-*{ box-sizing: border-box; }
-html,body{ height:100%; }
-body{
-  margin:0; padding:24px;
+
+/* ==================== ベーススタイル ==================== */
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  padding: 24px;
   background: var(--bg);
   color: var(--text);
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", sans-serif;
   line-height: 1.6;
 }
 
-
-/* ===== レイアウト ===== */
-.layout{
+/* ==================== レイアウト ==================== */
+.layout {
   display: grid;
   grid-template-columns: 1fr 2fr;
   gap: 24px;
 }
-@media (max-width: 960px){
-  .layout{ grid-template-columns: 1fr; }
-}
-.employee-list{ align-self: start; }
-.gantt-area{
+
+.employee-list {
   align-self: start;
-  overflow: hidden;  /* 無限成長を防ぐ */
+}
+
+.gantt-area {
+  align-self: start;
+  overflow: hidden;
   max-width: 100%;
 }
 
-/* ===== カード ===== */
-.card{
+/* ==================== カード ==================== */
+.card {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 16px;
 }
-.card-title{
+
+.card-title {
   margin: 0 0 12px;
   font-size: 18px;
   font-weight: 700;
 }
 
-/* ===== 従業員リスト ===== */
-.list{ list-style: none; padding: 0; margin: 0; }
-.list li{ padding: 6px 0; border-bottom: 1px dashed var(--border); }
-.list li:last-child{ border-bottom: none; }
-.emp-link{
+.detail-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px;
+}
+
+/* ==================== リスト ==================== */
+.list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.list li {
+  padding: 6px 0;
+  border-bottom: 1px dashed var(--border);
+}
+
+.list li:last-child {
+  border-bottom: none;
+}
+
+.emp-link {
   color: #1f2937;
   text-decoration: underline;
   cursor: pointer;
 }
-.emp-link:hover{ opacity: .8; }
 
-/* ===== 凡例 ===== */
-.legend{
-  display: flex; flex-wrap: wrap; gap: 12px;
+.emp-link:hover {
+  opacity: .8;
+}
+
+/* ==================== 凡例 ==================== */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
   margin: 6px 0 10px;
   color: var(--muted);
   font-size: 14px;
 }
-.legend-item{ display: inline-flex; align-items: center; gap: 6px; }
-.legend-swatch{
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend-swatch {
   display: inline-block;
-  width: 14px; height: 14px;
+  width: 14px;
+  height: 14px;
   border-radius: 4px;
   border: 1px solid var(--border);
 }
-.legend-swatch.pos-reji{ background: var(--reji); border-color: color-mix(in srgb, var(--reji) 70%, #0000); }
-.legend-swatch.pos-drink{ background: var(--drink); border-color: color-mix(in srgb, var(--drink) 70%, #0000); }
-.legend-swatch.pos-fry{ background: var(--fry); border-color: color-mix(in srgb, var(--fry) 70%, #0000); }
-.legend-swatch.pos-burger{ background: var(--burger); border-color: color-mix(in srgb, var(--burger) 70%, #0000); }
-.legend-swatch.seg-break{ background: var(--break); border-color: color-mix(in srgb, var(--break) 70%, #0000); }
 
-/* ===== ガント（Chart.js キャンバス） ===== */
-.gantt-canvas{
+.legend-swatch.pos-reji {
+  background: var(--reji);
+  border-color: color-mix(in srgb, var(--reji) 70%, #0000);
+}
+
+.legend-swatch.pos-drink {
+  background: var(--drink);
+  border-color: color-mix(in srgb, var(--drink) 70%, #0000);
+}
+
+.legend-swatch.pos-fry {
+  background: var(--fry);
+  border-color: color-mix(in srgb, var(--fry) 70%, #0000);
+}
+
+.legend-swatch.pos-burger {
+  background: var(--burger);
+  border-color: color-mix(in srgb, var(--burger) 70%, #0000);
+}
+
+.legend-swatch.seg-break {
+  background: var(--break);
+  border-color: color-mix(in srgb, var(--break) 70%, #0000);
+}
+
+/* ==================== ガントチャート ==================== */
+.gantt-canvas {
   display: block;
   width: 100%;
   background: #fff;
@@ -96,30 +163,376 @@ body{
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 0;
-  overflow: hidden;  /* オーバーフローを隠す */
+  overflow: hidden;
   box-sizing: border-box;
 }
 
-/* ===== detail用の共通（あれば） ===== */
-.detail-card{ background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; }
-.row{ display:flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; }
-.table{ width: 100%; border-collapse: collapse; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
-.table th, .table td{ padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: left; }
-.table thead th{ background: #f4f6f8; font-weight: 600; }
-.status{ margin-top: 8px; color: var(--muted); }
+/* ポジション別背景色 */
+.pos-reji { background: var(--reji); }
+.pos-drink { background: var(--drink); }
+.pos-fry { background: var(--fry); }
+.pos-burger { background: var(--burger); }
+.seg-break { background: var(--break); }
 
-/* アクションボタン（位置・色分けはJSでclass付与） */
-.action-buttons{ display:flex; flex-wrap: wrap; gap:8px; align-items:flex-end; }
-.btn{ appearance:none; border:none; border-radius:10px; padding:10px 14px; font-weight:700; cursor:pointer; color:#fff; box-shadow: var(--shadow); }
-.btn:disabled{ opacity:.5; cursor:not-allowed; }
-.btn-shukkin{ background:#2563eb; }
-.btn-taikin{ background:#0ea5e9; }
-.btn-kyuukei-start{ background:#f59e0b; color:#111; }
-.btn-kyuukei-end{ background:#22c55e; }
+/* ==================== テーブル ==================== */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
 
-/* 既存ポジション用クラス（自家製DOM版との互換用） */
-.pos-reji{ background: var(--reji); }
-.pos-drink{ background: var(--drink); }
-.pos-fry{ background: var(--fry); }
-.pos-burger{ background: var(--burger); }
-.seg-break{ background: var(--break); }
+.table th,
+.table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+.table thead th {
+  background: #f4f6f8;
+  font-weight: 600;
+}
+
+/* ==================== フォーム要素 ==================== */
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.status {
+  margin-top: 8px;
+  color: var(--muted);
+}
+
+.action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+/* ==================== ボタン ==================== */
+.btn {
+  appearance: none;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-weight: 700;
+  cursor: pointer;
+  color: #fff;
+  box-shadow: var(--shadow);
+  transition: opacity 0.2s ease;
+}
+
+.btn:hover {
+  opacity: 0.9;
+}
+
+.btn:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+/* ボタンカラー */
+.btn-shukkin { background: #2563eb; }
+.btn-taikin { background: #0ea5e9; }
+.btn-kyuukei-start { background: #f59e0b; color: #111; }
+.btn-kyuukei-end { background: #22c55e; }
+
+/* ボタンローディング状態 */
+.btn.loading {
+  position: relative;
+  color: transparent;
+  pointer-events: none;
+}
+
+.btn.loading::after {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  top: 50%;
+  left: 50%;
+  margin-left: -8px;
+  margin-top: -8px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* ==================== ローディング ==================== */
+/* グローバルオーバーレイ */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.loading-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.loading-spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* インラインローダー */
+.inline-loader {
+  display: inline-block;
+  padding: 8px 16px;
+  background: rgba(15, 23, 42, 0.05);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 14px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.inline-loader::after {
+  content: '...';
+  display: inline-block;
+  width: 20px;
+  text-align: left;
+  animation: dots 1.5s steps(4, end) infinite;
+}
+
+/* チャートローディング */
+.chart-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  border-radius: var(--radius);
+}
+
+/* ==================== アニメーション ==================== */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+@keyframes dots {
+  0%, 20% {
+    content: '.';
+  }
+  40% {
+    content: '..';
+  }
+  60%, 100% {
+    content: '...';
+  }
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOut {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOutDown {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+}
+
+/* ==================== アクセシビリティ ==================== */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* フォーカス表示の改善 */
+*:focus {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+button:focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 2px;
+}
+
+/* 高コントラストモード対応 */
+@media (prefers-contrast: high) {
+  .btn {
+    border: 2px solid currentColor;
+  }
+
+  .card {
+    border-width: 2px;
+  }
+}
+
+/* モーション設定を尊重 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* リトライボタン */
+.btn-retry {
+  background: #6b7280;
+  font-size: 14px;
+  padding: 6px 12px;
+}
+
+/* ==================== 空状態表示 ==================== */
+#ganttContainer {
+  position: relative;
+  min-height: 250px;
+}
+
+.empty-state {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #fafbfc;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  text-align: center;
+  padding: 40px 20px;
+  min-height: 250px;
+  box-sizing: border-box;
+}
+
+.empty-icon {
+  color: var(--muted);
+  margin-bottom: 20px;
+  opacity: 0.5;
+}
+
+.empty-title {
+  margin: 0 0 8px;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.empty-description {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  max-width: 300px;
+}
+
+/* ==================== デジタル時計 ==================== */
+.digital-clock-container {
+  display: flex;
+  justify-content: center;
+  margin: 20px 0 24px;
+}
+
+.digital-clock {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 32px;
+  text-align: center;
+  box-shadow: var(--shadow);
+  color: var(--text);
+  font-family: 'Courier New', monospace;
+}
+
+.digital-clock .time {
+  display: block;
+  font-size: 2.5rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+
+.digital-clock .date {
+  display: block;
+  font-size: 1rem;
+  font-weight: 400;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}

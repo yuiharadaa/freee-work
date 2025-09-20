@@ -10,7 +10,7 @@
    * @const {Object}
    */
   const CONFIG = {
-    API_URL: 'https://script.google.com/macros/s/AKfycbySCO7N0M2h6OULpZWMC878Ckto5OnpXO7uDQjukrGPfWnH4yZIoC_imVMbFFoHIjz9CQ/exec',
+    API_URL: 'https://script.google.com/macros/s/AKfycbxYwfb7YGfsUAeTH-WaqF79HyXDooksC2pfK1aZkDcKSU3DA0-gL60sJTojUVyVnjQI/exec',
     DEFAULT_TIMEOUT: 30000,
     DEFAULT_RETRY_ATTEMPTS: 3,
     RETRY_DELAY: 1000,

@@ -2,17 +2,29 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>freee</title>
-  <link rel="stylesheet" href="./style.css?v=36" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>freee 勤怠管理</title>
+  <link rel="stylesheet" href="./style.css?v=42" />
+  <link rel="stylesheet" href="./responsive.css?v=1" />
 </head>
 <body>
-  <h2 class="message">今日も1日頑張ろう！</h2>
+  <!-- モバイルヘッダー -->
+  <header class="mobile-header">
+    <h1 class="mobile-title">freee 勤怠管理</h1>
+    <button class="menu-toggle" id="menuToggle" aria-label="メニュー切り替え" aria-expanded="false">
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+  </header>
+
   <div class="layout">
-    <!-- 左：従業員一覧 -->
-    <section class="employee-list card">
-      <h1 class="card-title">従業員一覧</h1>
-      <ul id="employeeList" class="list"></ul>
+    <!-- 従業員一覧 -->
+    <section class="employee-list card" aria-labelledby="emp-title">
+      <h1 id="emp-title" class="card-title">従業員一覧</h1>
+      <ul id="employeeList" class="list" role="list" aria-live="polite"></ul>
 
       <!-- 1人分のLIテンプレ -->
       <template id="tpl-employee-item">
@@ -20,13 +32,13 @@
       </template>
     </section>
 
-    <!-- 右：ガントチャート -->
-    <section class="gantt-area">
+    <!-- ガントチャート -->
+    <section class="gantt-area" aria-labelledby="gantt-title">
       <div class="card">
-        <h2 class="card-title">本日の出勤者（営業時間 09:00–22:00）</h2>
+        <h2 id="gantt-title" class="card-title">本日の出勤者（営業時間 09:00–22:00）</h2>
 
         <!-- 凡例 -->
-        <div class="legend">
+        <div class="legend" role="group" aria-label="ポジション凡例">
           <span class="legend-item"><i class="legend-swatch pos-reji"></i>レジ</span>
           <span class="legend-item"><i class="legend-swatch pos-drink"></i>ドリンカー</span>
           <span class="legend-item"><i class="legend-swatch pos-fry"></i>フライヤー</span>
@@ -35,9 +47,32 @@
         </div>
 
         <!-- Chart.js キャンバス -->
-        <canvas id="ganttCanvas" class="gantt-canvas"></canvas>
+        <div id="ganttContainer" style="position: relative;">
+          <canvas id="ganttCanvas" class="gantt-canvas" role="img" aria-label="勤務ガントチャート"></canvas>
+          <div id="ganttLoading" class="chart-loading-overlay" style="display: none;">
+            <div class="inline-loader">グラフを更新中</div>
+          </div>
+          <div id="ganttEmpty" class="empty-state" style="display: none;">
+            <svg class="empty-icon" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+              <line x1="3" y1="9" x2="21" y2="9"/>
+              <line x1="9" y1="21" x2="9" y2="9"/>
+            </svg>
+            <h3 class="empty-title">データがありません</h3>
+            <p class="empty-description">本日退勤した従業員がいません</p>
+          </div>
+        </div>
       </div>
     </section>
+  </div>
+
+  <!-- モバイルメニューオーバーレイ -->
+  <div class="mobile-overlay" id="mobileOverlay"></div>
+
+  <!-- グローバルローディングオーバーレイ -->
+  <div id="loadingOverlay" class="loading-overlay" role="status" aria-live="polite" aria-hidden="true">
+    <div class="loading-spinner"></div>
+    <span class="sr-only">読み込み中...</span>
   </div>
 
   <!-- 依存（順序厳守） -->
@@ -46,8 +81,8 @@
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1"></script>
 
 <!-- アプリ本体（?v=を上げる） -->
-<script src="./api.js?v=40"></script>
-<script src="./index.js?v=40"></script>
+<script src="./api.js?v=42"></script>
+<script src="./index.js?v=49"></script>
 
 </body>
 </html>

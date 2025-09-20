@@ -2,13 +2,24 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>freee</title>
-  <link rel="stylesheet" href="./style.css?v=7" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>freee 従業員詳細</title>
+  <link rel="stylesheet" href="./style.css?v=42" />
+  <link rel="stylesheet" href="./responsive.css?v=1" />
 </head>
 <body>
   <a href="./index.html">← 一覧へ戻る</a>
   <h1>従業員の詳細</h1>
+
+  <!-- デジタル時計 -->
+  <div class="digital-clock-container">
+    <div id="digitalClock" class="digital-clock">
+      <span class="time">--:--:--</span>
+      <span class="date">----年--月--日</span>
+    </div>
+  </div>
 
   <div class="detail-card">
     <div><strong>従業員ID:</strong> <span id="empId">-</span></div>
@@ -16,8 +27,8 @@
 
     <div class="row">
       <div>
-        <label>ポジション</label><br/>
-        <select id="position">
+        <label for="position">ポジション</label><br/>
+        <select id="position" aria-label="ポジション選択">
           <option value="レジ">レジ</option>
           <option value="ドリンカー">ドリンカー</option>
           <option value="フライヤー">フライヤー</option>
@@ -33,13 +44,30 @@
     <div id="status" class="status"></div>
   </div>
 
+  <!-- 本日の勤務時間と給料 -->
+  <div class="today-summary" style="margin:16px 0; padding:12px; background:#f9fafb; border-radius:8px;">
+    <div style="display:flex; gap:24px; flex-wrap:wrap;">
+      <div>
+        <strong>本日の合計勤務時間:</strong>
+        <span id="workTotal">0時間0分</span>
+      </div>
+      <div id="dailySalaryContainer" style="display:none;">
+        <strong>本日の給料:</strong>
+        <span id="dailySalary">¥0</span>
+        <small style="color:#6b7280; margin-left:8px;">（時給: <span id="hourlyWage">¥0</span>）</small>
+      </div>
+    </div>
+  </div>
+
   <h3 style="margin:16px 0 8px;">直近の履歴</h3>
-  <table class="table">
+  <div class="table-wrapper">
+    <table class="table">
     <thead>
-      <tr><th>日付</th><th>時刻</th><th>種別</th><th>ポジション</th><th>勤務時間</th><th>本日の給与</th></tr>
+      <tr><th>日付</th><th>時刻</th><th>種別</th><th>ポジション</th><th>勤務時間</th></tr>
     </thead>
-    <tbody id="historyBody"></tbody>
-  </table>
+      <tbody id="historyBody"></tbody>
+    </table>
+  </div>
 
   <!-- 履歴1行テンプレ -->
   <template id="tpl-history-row">
@@ -49,12 +77,16 @@
       <td class="c-type"></td>
       <td class="c-pos"></td>
       <td class="c-dur"></td>
-      <td class="c-pay"></td>
     </tr>
   </template>
 
+  <!-- グローバルローディングオーバーレイ -->
+  <div id="loadingOverlay" class="loading-overlay">
+    <div class="loading-spinner"></div>
+  </div>
+
   <!-- cache-busting を付けて古いJSを掴まないように -->
-  <script src="./api.js?v=2"></script>
-  <script src="./detail.js?v=38"></script>
+  <script src="./api.js?v=42"></script>
+  <script src="./detail.js?v=46"></script>
 </body>
 </html>
