@@ -1,0 +1,505 @@
+/* ================================
+   レスポンシブデザイン専用スタイルシート
+   ================================ */
+
+/* ==================== ブレークポイント定義 ==================== */
+/*
+  - モバイル: 320px ~ 640px
+  - タブレット: 641px ~ 1024px
+  - デスクトップ: 1025px ~
+*/
+
+/* ==================== モバイル (最大640px) ==================== */
+@media (max-width: 640px) {
+  /* ベースレイアウト */
+  body {
+    padding: 12px;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    font-size: 14px;
+  }
+
+  /* レイアウトをシングルカラムに */
+  .layout {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  /* カード */
+  .card {
+    padding: 12px;
+    border-radius: 8px;
+  }
+
+  .card-title {
+    font-size: 16px;
+    margin-bottom: 8px;
+  }
+
+  /* 従業員リスト */
+  .employee-list {
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .list li {
+    padding: 10px 0;
+  }
+
+  .emp-link {
+    font-size: 14px;
+    padding: 8px 0;
+    display: block;
+  }
+
+  /* 凡例 */
+  .legend {
+    font-size: 12px;
+    gap: 8px;
+    margin: 8px 0;
+  }
+
+  .legend-swatch {
+    width: 12px;
+    height: 12px;
+  }
+
+  /* ガントチャート */
+  #ganttContainer {
+    min-height: 200px;
+  }
+
+  .gantt-canvas {
+    max-height: 300px;
+  }
+
+  /* 空状態 */
+  .empty-state {
+    padding: 20px;
+    min-height: 200px;
+  }
+
+  .empty-icon {
+    width: 60px;
+    height: 60px;
+  }
+
+  .empty-title {
+    font-size: 18px;
+  }
+
+  .empty-description {
+    font-size: 13px;
+  }
+
+  /* ボタン - タッチフレンドリーに */
+  .btn {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 12px 16px;
+    font-size: 14px;
+    border-radius: 8px;
+  }
+
+  /* テーブル - 横スクロール対応 */
+  .table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .table {
+    min-width: 500px;
+    font-size: 13px;
+  }
+
+  .table th,
+  .table td {
+    padding: 6px 8px;
+    white-space: nowrap;
+  }
+
+  /* アクションボタン */
+  .action-buttons {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .action-buttons button {
+    width: 100%;
+    margin-bottom: 8px;
+  }
+
+  /* デジタル時計 */
+  .digital-clock {
+    padding: 16px 20px;
+  }
+
+  .digital-clock .time {
+    font-size: 2rem;
+  }
+
+  .digital-clock .date {
+    font-size: 0.9rem;
+  }
+
+  /* 詳細ページ */
+  .detail-card {
+    padding: 12px;
+  }
+
+  .detail-card > div {
+    margin-bottom: 12px;
+  }
+
+  .row {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* ローディング */
+  .inline-loader {
+    font-size: 13px;
+    padding: 6px 12px;
+  }
+
+  /* トースト通知 */
+  .toast,
+  .error-message,
+  .success-message {
+    font-size: 13px;
+    padding: 10px 16px;
+    bottom: 10px;
+    right: 10px;
+    left: 10px;
+    transform: none;
+  }
+}
+
+/* ==================== タブレット (641px ~ 1024px) ==================== */
+@media (min-width: 641px) and (max-width: 1024px) {
+  /* ベースレイアウト */
+  body {
+    padding: 20px;
+  }
+
+  /* レイアウト調整 */
+  .layout {
+    grid-template-columns: 1fr 1.5fr;
+    gap: 20px;
+  }
+
+  /* カード */
+  .card {
+    padding: 14px;
+  }
+
+  /* 従業員リスト */
+  .employee-list {
+    max-height: 400px;
+    overflow-y: auto;
+  }
+
+  /* ガントチャート */
+  .gantt-canvas {
+    max-height: 500px;
+  }
+
+  /* ボタン */
+  .btn {
+    min-height: 40px;
+    padding: 10px 14px;
+  }
+
+  /* テーブル */
+  .table {
+    font-size: 14px;
+  }
+
+  /* アクションボタン */
+  .action-buttons {
+    flex-wrap: wrap;
+  }
+}
+
+/* ==================== デスクトップ (1025px以上) ==================== */
+@media (min-width: 1025px) {
+  /* 大画面用の最大幅設定 */
+  .layout {
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  /* より大きなガントチャート表示 */
+  .gantt-canvas {
+    max-height: 700px;
+  }
+
+  /* ホバーエフェクトの強化 */
+  .emp-link {
+    transition: all 0.2s ease;
+  }
+
+  .emp-link:hover {
+    background: rgba(37, 99, 235, 0.05);
+    padding-left: 8px;
+  }
+
+  .btn {
+    transition: all 0.2s ease;
+  }
+
+  .btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+}
+
+/* ==================== タッチデバイス対応 ==================== */
+@media (hover: none) and (pointer: coarse) {
+  /* タッチターゲットを大きく */
+  .emp-link,
+  .btn,
+  button,
+  select,
+  input {
+    min-height: 44px;
+  }
+
+  /* ホバーエフェクトを無効化 */
+  .emp-link:hover {
+    opacity: 1;
+    background: none;
+  }
+
+  .btn:hover {
+    transform: none;
+  }
+
+  /* タップハイライトの調整 */
+  * {
+    -webkit-tap-highlight-color: rgba(37, 99, 235, 0.1);
+  }
+
+  /* スクロールの改善 */
+  .employee-list,
+  .table-wrapper {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+}
+
+/* ==================== 横向き対応 ==================== */
+@media (orientation: landscape) and (max-height: 500px) {
+  /* 横向きで高さが制限される場合 */
+  body {
+    padding: 8px;
+  }
+
+  .card {
+    padding: 8px;
+  }
+
+  .card-title {
+    font-size: 14px;
+    margin-bottom: 4px;
+  }
+
+  .gantt-canvas {
+    max-height: 250px;
+  }
+
+  #ganttContainer {
+    min-height: 150px;
+  }
+
+  .empty-state {
+    min-height: 150px;
+    padding: 15px;
+  }
+
+  .empty-icon {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+/* ==================== モバイルヘッダー ==================== */
+.mobile-header {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50px;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  padding: 0 16px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.mobile-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.menu-toggle {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  width: 30px;
+  height: 24px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.menu-toggle span {
+  width: 100%;
+  height: 2px;
+  background: var(--text);
+  border-radius: 2px;
+  transition: all 0.3s ease;
+}
+
+.menu-toggle.active span:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+
+.menu-toggle.active span:nth-child(2) {
+  opacity: 0;
+}
+
+.menu-toggle.active span:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+/* モバイルでヘッダーを表示 */
+@media (max-width: 640px) {
+  .mobile-header {
+    display: flex;
+  }
+
+  body {
+    padding-top: 62px; /* ヘッダー分のスペース */
+  }
+
+  .layout {
+    padding-top: 0;
+  }
+
+  /* 従業員リストをトグル可能に */
+  .employee-list {
+    transition: all 0.3s ease;
+    position: fixed;
+    left: -100%;
+    top: 50px;
+    bottom: 0;
+    width: 80%;
+    max-width: 300px;
+    z-index: 999;
+    overflow-y: auto;
+    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .employee-list.show {
+    left: 0;
+  }
+
+  /* オーバーレイ */
+  .mobile-overlay {
+    display: none;
+    position: fixed;
+    top: 50px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 998;
+  }
+
+  .mobile-overlay.show {
+    display: block;
+  }
+}
+
+/* ==================== プリント対応 ==================== */
+@media print {
+  /* 不要な要素を非表示 */
+  .loading-overlay,
+  .toast,
+  .error-message,
+  .success-message {
+    display: none !important;
+  }
+
+  /* 背景色を削除 */
+  body {
+    background: white;
+  }
+
+  .card {
+    box-shadow: none;
+    border: 1px solid #000;
+  }
+
+  /* ページ分割の制御 */
+  .employee-list {
+    page-break-inside: avoid;
+  }
+
+  .gantt-area {
+    page-break-inside: avoid;
+  }
+
+  /* リンクの装飾を削除 */
+  .emp-link {
+    text-decoration: none;
+    color: #000;
+  }
+}
+
+/* ==================== アクセシビリティ向上 ==================== */
+@media (prefers-reduced-motion: reduce) {
+  /* アニメーション無効化 */
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+@media (prefers-contrast: high) {
+  /* 高コントラストモード */
+  .card {
+    border-width: 2px;
+  }
+
+  .btn {
+    border: 2px solid currentColor;
+  }
+
+  .empty-state {
+    border-width: 3px;
+  }
+}
+
+/* ==================== フォールドより上の最適化 ==================== */
+@media (max-height: 700px) {
+  .employee-list {
+    max-height: 300px;
+    overflow-y: auto;
+  }
+}
+
+@media (max-height: 500px) {
+  .employee-list {
+    max-height: 200px;
+  }
+}

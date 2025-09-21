@@ -8,18 +8,40 @@
   <title>freee 従業員詳細</title>
   <link rel="stylesheet" href="./style.css?v=42" />
   <link rel="stylesheet" href="./responsive.css?v=1" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.5/dist/chart.umd.min.js"></script>
 </head>
 <body>
   <a href="./index.html">← 一覧へ戻る</a>
   <h1>従業員の詳細</h1>
 
-  <!-- デジタル時計 -->
+  <!-- ✅ KPI（今月/時計/年）レイアウト -->
+<div class="kpi-row">
+  <!-- 左：今月の給料（大きな数値表示） -->
+  <div class="kpi-card big-number">
+    <div class="kpi-title">今月の給料</div>
+    <div id="monthlyTotalText" class="big-figure">¥0</div>
+    <small>目安: <span id="monthlyCapText">¥0</span></small>
+  </div>
+
+  <!-- 中央：デジタル時計（既存DOMをそのまま移動） -->
   <div class="digital-clock-container">
     <div id="digitalClock" class="digital-clock">
       <span class="time">--:--:--</span>
       <span class="date">----年--月--日</span>
     </div>
   </div>
+
+  <!-- 右：今年の給料（ドーナツ） -->
+  <div class="kpi-card">
+    <div class="kpi-title">今年の給料</div>
+    <canvas id="annualPie" width="220" height="220" aria-label="今年の給料 円グラフ"></canvas>
+    <div class="kpi-fig">
+      <span id="annualTotalText">¥0</span>
+      <small>上限: <span id="annualCapText">¥1,030,000</span></small>
+    </div>
+  </div>
+</div>
+
 
   <div class="detail-card">
     <div><strong>従業員ID:</strong> <span id="empId">-</span></div>

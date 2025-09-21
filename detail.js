@@ -1,7 +1,14 @@
-// detail.js - 従業員詳細ページ
+// detail.js v47 - 従業員詳細ページ（KPI：左=今月の合計数値 / 中央=時計 / 右=年ドーナツ）
+// =================================================================================
 
 /* ==================== グローバル状態 ==================== */
 let current = null;
+
+/* ==== KPI & 給料可視化 ====
+   年の上限（103万円）や見せ方をここで調整できます。 */
+const ANNUAL_CAP = 1030000;      // 年間の目安上限（103万円）。必要に応じて 1060000 / 1300000 などに変更
+let annualChart = null;
+const yen = n => "¥" + Math.round(n).toLocaleString("ja-JP");
 
 /* ==================== ローディング制御 & フィードバック ==================== */
 function showLoading() {
@@ -36,9 +43,7 @@ function showToast(message, type = 'success') {
     z-index: 10000;
     animation: fadeInUp 0.3s ease;
   `;
-
   document.body.appendChild(toast);
-
   setTimeout(() => {
     toast.style.animation = 'fadeOutDown 0.3s ease';
     setTimeout(() => toast.remove(), 300);
@@ -72,7 +77,6 @@ async function init() {
     } catch (e) {
       console.error(e);
       retryCount++;
-
       if (retryCount < maxRetries) {
         console.log(`リトライ ${retryCount}/${maxRetries}`);
         setTimeout(fetchWithRetry, 1000 * retryCount);
@@ -92,6 +96,7 @@ async function init() {
 async function refreshUI() {
   await loadHistoryAndRender();
   await renderActionButtons();
+  await renderKpisFromApi(); // ✅ 追加：KPI（今月・年）を描画
 }
 
 /* ==================== アクションボタン表示 ==================== */
@@ -125,7 +130,6 @@ function createActionButton(action) {
   const btn = document.createElement('button');
   btn.textContent = action;
 
-  // スタイルクラス設定
   const classMap = {
     '出勤': 'btn btn-shukkin',
     '退勤': 'btn btn-taikin',
@@ -149,9 +153,7 @@ async function onPunchAction(action, event) {
 
   buttons.forEach(btn => {
     btn.disabled = true;
-    if (btn === clickedButton) {
-      btn.classList.add('loading');
-    }
+    if (btn === clickedButton) btn.classList.add('loading');
   });
 
   showInlineLoader(status, '送信中');
@@ -165,31 +167,24 @@ async function onPunchAction(action, event) {
     });
 
     status.textContent = `打刻完了: ${saved.date} ${saved.time} / ${saved.punchType} / ${saved.position}`;
-
-    // 成功通知
     showToast(`${action}を記録しました`, 'success');
 
-    // 退勤時はBroadcastChannelで通知
-    if (action === '退勤') {
-      notifyPunchEvent();
-    }
+    if (action === '退勤') notifyPunchEvent();
 
     await refreshUI();
   } catch (e) {
     console.error(e);
     const errorMessage = e.message || '打刻に失敗しました';
     status.textContent = `エラー: ${errorMessage}`;
-
-    // エラー通知
     showToast(errorMessage, 'error');
 
-    // エラー時もボタンを再有効化（リトライ可能にする）
+    // リトライ可に戻す
     buttons.forEach(btn => {
       btn.classList.remove('loading');
       btn.disabled = false;
     });
 
-    // リトライボタン表示
+    // リトライボタン
     const retryBtn = document.createElement('button');
     retryBtn.textContent = '再試行';
     retryBtn.className = 'btn btn-retry';
@@ -205,11 +200,7 @@ async function onPunchAction(action, event) {
 function notifyPunchEvent() {
   try {
     const bc = new BroadcastChannel('punch');
-    bc.postMessage({
-      kind: 'punch',
-      punchType: '退勤',
-      at: new Date().toISOString()
-    });
+    bc.postMessage({ kind: 'punch', punchType: '退勤', at: new Date().toISOString() });
     bc.close();
   } catch (e) {
     console.warn('[DETAIL] BC send failed:', e);
@@ -235,16 +226,14 @@ async function loadHistoryAndRender() {
     // 新しい順にソート
     const rowsDesc = sortHistoryDescending(rows);
 
-    // 勤務時間計算
+    // 勤務時間計算（各イベント時点での直近区間の長さ）
     const durMap = buildWorkDurations(rows);
 
     // 履歴表示
     renderHistoryRows(tbody, tplRow, rowsDesc, durMap);
 
     // 本日の合計勤務時間
-    if (totalEl) {
-      updateTodayTotal(totalEl, rows);
-    }
+    if (totalEl) updateTodayTotal(totalEl, rows);
   } catch (e) {
     console.error(e);
     renderHistoryError(tbody, totalEl);
@@ -271,7 +260,6 @@ function renderHistoryRows(tbody, tplRow, rows, durMap) {
     tr.querySelector('.c-type').textContent = API.escapeHtml(r.punchType);
     tr.querySelector('.c-pos').textContent = API.escapeHtml(r.position);
 
-    // 勤務時間表示
     const key = makeEventKey(r.date, r.time, r.punchType);
     const ms = durMap.get(key);
     tr.querySelector('.c-dur').textContent = ms ? formatHm(ms) : '';
@@ -284,7 +272,7 @@ function renderHistoryRows(tbody, tplRow, rows, durMap) {
 }
 
 function updateTodayTotal(totalEl, rows) {
-  const today = ymd(new Date());
+  const today = ymd(new Date()).replace(/\./g, '-').replace(/\//g, '-');
   const todayRows = rows
     .filter(r => normalizeDate(r.date) === today)
     .sort((a, b) => toTimestamp(a.date, a.time) - toTimestamp(b.date, b.time));
@@ -301,19 +289,13 @@ function updateTodayTotal(totalEl, rows) {
   const hourlyWageEl = document.getElementById('hourlyWage');
 
   if (hasClockedOut && current?.hourlyWage && salaryContainer && dailySalaryEl && hourlyWageEl) {
-    // 時給を表示
     const hourlyWage = current.hourlyWage;
     hourlyWageEl.textContent = `¥${hourlyWage.toLocaleString()}`;
-
-    // 給料を計算（勤務時間（時間）× 時給）
     const workHours = totalMs / 1000 / 60 / 60;
     const dailySalary = Math.floor(workHours * hourlyWage);
     dailySalaryEl.textContent = `¥${dailySalary.toLocaleString()}`;
-
-    // 給料表示エリアを表示
     salaryContainer.style.display = 'block';
   } else if (salaryContainer) {
-    // 退勤していない場合は非表示
     salaryContainer.style.display = 'none';
   }
 }
@@ -327,19 +309,16 @@ function buildWorkDurations(rowsAsc) {
 
   rowsAsc.forEach(r => {
     const ts = toTimestamp(r.date, r.time);
-
     switch (r.punchType) {
       case '出勤':
       case '休憩終了':
         runningStart = ts;
         break;
-
       case '休憩開始':
       case '退勤':
         if (runningStart != null) {
           const dur = ts - runningStart;
-          // 秒を切り捨て（分単位に切り捨て）
-          const durMinutes = Math.floor(dur / 1000 / 60);
+          const durMinutes = Math.floor(dur / 1000 / 60); // 分へ切り捨て
           const durMs = durMinutes * 60 * 1000;
           const key = makeEventKey(r.date, r.time, r.punchType);
           map.set(key, durMs);
@@ -348,7 +327,6 @@ function buildWorkDurations(rowsAsc) {
         break;
     }
   });
-
   return map;
 }
 
@@ -358,53 +336,44 @@ function calcWorkTotal(rowsAsc) {
 
   rowsAsc.forEach(r => {
     const ts = toTimestamp(r.date, r.time);
-
     switch (r.punchType) {
       case '出勤':
       case '休憩終了':
         runningStart = ts;
         break;
-
       case '休憩開始':
       case '退勤':
         if (runningStart != null) {
           const durationMs = ts - runningStart;
-          // 秒を切り捨て（分単位に切り捨て）
           const durationMinutes = Math.floor(durationMs / 1000 / 60);
-          total += durationMinutes * 60 * 1000; // ミリ秒に戻す
+          total += durationMinutes * 60 * 1000; // ミリ秒
           runningStart = null;
         }
         break;
     }
   });
-
   return total;
 }
 
 /* ==================== 状態判定 ==================== */
 function getLastEvent(rows) {
   if (!Array.isArray(rows) || rows.length === 0) return null;
-
   const withTs = rows
     .map(r => ({ ...r, __ts: toTimestamp(r.date, r.time) }))
     .filter(r => !Number.isNaN(r.__ts));
-
   if (withTs.length === 0) return null;
-
   withTs.sort((a, b) => b.__ts - a.__ts);
   return withTs[0];
 }
 
 function decideNextByLastType(lastType) {
   if (!lastType) return ['出勤'];
-
   const transitions = {
     '出勤': ['退勤', '休憩開始'],
     '休憩開始': ['休憩終了'],
     '休憩終了': ['退勤', '休憩開始'],
     '退勤': ['出勤']
   };
-
   return transitions[lastType] || ['出勤'];
 }
 
@@ -460,13 +429,8 @@ function makeEventKey(dateStr, timeStr, type) {
 let clockUpdateInterval = null;
 
 function initDigitalClock() {
-  // 即座に時計を更新
-  updateDigitalClock();
-
-  // 1秒ごとに時計を更新
-  if (clockUpdateInterval) {
-    clearInterval(clockUpdateInterval);
-  }
+  updateDigitalClock(); // すぐ更新
+  if (clockUpdateInterval) clearInterval(clockUpdateInterval);
   clockUpdateInterval = setInterval(updateDigitalClock, 1000);
 }
 
@@ -474,29 +438,139 @@ function updateDigitalClock() {
   const now = new Date();
   const timeElement = document.querySelector('.digital-clock .time');
   const dateElement = document.querySelector('.digital-clock .date');
-
   if (!timeElement || !dateElement) return;
 
-  // 時刻をフォーマット (HH:MM:SS)
   const hours = String(now.getHours()).padStart(2, '0');
   const minutes = String(now.getMinutes()).padStart(2, '0');
   const seconds = String(now.getSeconds()).padStart(2, '0');
   const timeString = `${hours}:${minutes}:${seconds}`;
 
-  // 日付をフォーマット (YYYY年MM月DD日)
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const date = String(now.getDate()).padStart(2, '0');
   const dateString = `${year}年${month}月${date}日`;
 
-  // DOM要素を更新
   timeElement.textContent = timeString;
   dateElement.textContent = dateString;
 }
 
-// ページを離れる時にintervalをクリア
 window.addEventListener('beforeunload', () => {
-  if (clockUpdateInterval) {
-    clearInterval(clockUpdateInterval);
-  }
+  if (clockUpdateInterval) clearInterval(clockUpdateInterval);
 });
+
+/* ==================== KPI（今月/年）集計と描画 ==================== */
+// ある日の rows から IN/OUT ペアで分を計算
+function dailyMinutesFromRows(dayRows) {
+  const rows = dayRows.slice().sort((a, b) => toTimestamp(a.date, a.time) - toTimestamp(b.date, b.time));
+  let totalMin = 0;
+  let runningStart = null;
+
+  for (const r of rows) {
+    const ts = toTimestamp(r.date, r.time);
+    if (r.punchType === '出勤' || r.punchType === '休憩終了') {
+      runningStart = ts;
+    } else if ((r.punchType === '休憩開始' || r.punchType === '退勤') && runningStart != null) {
+      const diffMs = ts - runningStart;
+      const diffMin = Math.max(0, Math.floor(diffMs / 1000 / 60));
+      totalMin += diffMin;
+      runningStart = null;
+    }
+  }
+  return totalMin;
+}
+
+// 今月・今年の給料（円）を算出
+function computeMonthlyAnnualPay(allRows, hourlyWage) {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth(); // 0-11
+
+  const byDate = new Map(); // 'YYYY-MM-DD' -> rows[]
+  for (const r of allRows) {
+    const key = normalizeDate(r.date);
+    if (!byDate.has(key)) byDate.set(key, []);
+    byDate.get(key).push(r);
+  }
+
+  let monthlyMin = 0;
+  let annualMin  = 0;
+
+  for (const [dateStr, rows] of byDate.entries()) {
+    const d = new Date(dateStr + "T00:00:00");
+    if (isNaN(d.getTime())) continue;
+    const dy = d.getFullYear();
+    const dm = d.getMonth();
+    const mins = dailyMinutesFromRows(rows);
+    if (dy === y) {
+      annualMin += mins;
+      if (dm === m) monthlyMin += mins;
+    }
+  }
+
+  const perMin = Number(hourlyWage || 0) / 60;
+  return {
+    monthlyPay: monthlyMin * perMin,
+    annualPay:  annualMin  * perMin
+  };
+}
+
+// KPIの描画（左：数値 / 右：ドーナツ）
+function renderKpis({ monthlyPay, annualPay }) {
+  // 左：今月の数値
+  const monthlyCap = ANNUAL_CAP / 12;
+  const monthlyTotalText = document.getElementById('monthlyTotalText');
+  const monthlyCapText   = document.getElementById('monthlyCapText');
+  if (monthlyTotalText) monthlyTotalText.textContent = yen(monthlyPay);
+  if (monthlyCapText)   monthlyCapText.textContent   = yen(monthlyCap);
+
+  // 右：今年のドーナツ
+  const annualTotalText = document.getElementById('annualTotalText');
+  const annualCapText   = document.getElementById('annualCapText');
+  if (annualTotalText) annualTotalText.textContent = yen(annualPay);
+  if (annualCapText)   annualCapText.textContent   = yen(ANNUAL_CAP);
+
+  const remain = Math.max(0, ANNUAL_CAP - annualPay);
+  const ctx = document.getElementById('annualPie')?.getContext('2d');
+  if (!ctx) return;
+
+  const data = {
+    labels: ['今年の給料', '残り（上限）'],
+    datasets: [{ data: [annualPay, remain] }]
+  };
+  const opts = {
+    responsive: true,
+    cutout: '65%',
+    plugins: {
+      legend: { display: true },
+      tooltip: { callbacks: { label: (c) => `${c.label}: ${yen(c.raw)}` } }
+    }
+  };
+
+  if (annualChart) {
+    annualChart.data = data;
+    annualChart.update();
+  } else {
+    annualChart = new Chart(ctx, { type: 'doughnut', data, options: opts });
+  }
+}
+
+// APIから年間分取得してKPI反映
+async function renderKpisFromApi() {
+  try {
+    if (!current?.id) return;
+
+    // 直近365日を取得（APIがdaysに対応済み）
+    const all = await API.fetchHistory({ employeeId: current.id, days: 365 });
+
+    // 時給：employee優先。無ければUI表示からフォールバック
+    const hourly =
+      Number(current?.hourlyWage ?? 0) ||
+      Number(String(document.getElementById('hourlyWage')?.textContent || '').replace(/[^\d]/g, '')) ||
+      0;
+
+    const result = computeMonthlyAnnualPay(all, hourly);
+    renderKpis(result);
+  } catch (e) {
+    console.error('KPI描画中に失敗:', e);
+  }
+}
