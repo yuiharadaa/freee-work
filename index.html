@@ -12,18 +12,20 @@
 <body>
   <!-- モバイルヘッダー -->
   <header class="mobile-header">
-    <h1 class="mobile-title">freee 勤怠管理</h1>
-    <button class="menu-toggle" id="menuToggle" aria-label="メニュー切り替え" aria-expanded="false">
+    <button class="menu-toggle" id="menuToggle" aria-label="グラフ切り替え" aria-expanded="false">
       <span></span>
       <span></span>
       <span></span>
     </button>
   </header>
 
+  <!-- メインタイトル -->
+  <h1 style="text-align: center; font-size: 2rem; font-weight: 700; margin: 0 0 24px; color: var(--text);">freee 勤怠管理システム</h1>
+
   <div class="layout">
     <!-- 従業員一覧 -->
     <section class="employee-list card" aria-labelledby="emp-title">
-      <h1 id="emp-title" class="card-title">従業員一覧</h1>
+      <h2 id="emp-title" class="card-title">従業員ID一覧</h2>
       <ul id="employeeList" class="list" role="list" aria-live="polite"></ul>
 
       <!-- 1人分のLIテンプレ -->
@@ -35,7 +37,7 @@
     <!-- ガントチャート -->
     <section class="gantt-area" aria-labelledby="gantt-title">
       <div class="card">
-        <h2 id="gantt-title" class="card-title">本日の出勤者（営業時間 09:00–22:00）</h2>
+        <h3 id="gantt-title" class="card-title">本日の出勤予定（営業時間 09:00–22:00）</h3>
 
         <!-- 凡例 -->
         <div class="legend" role="group" aria-label="ポジション凡例">
@@ -59,7 +61,7 @@
               <line x1="9" y1="21" x2="9" y2="9"/>
             </svg>
             <h3 class="empty-title">データがありません</h3>
-            <p class="empty-description">本日退勤した従業員がいません</p>
+            <p class="empty-description">本日の出勤予定が登録されていません</p>
           </div>
         </div>
       </div>

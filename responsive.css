@@ -19,6 +19,12 @@
     font-size: 14px;
   }
 
+  /* h1見出しのモバイル調整 */
+  h1 {
+    font-size: 1.5rem !important;
+    margin: 0 0 16px !important;
+  }
+
   /* レイアウトをシングルカラムに */
   .layout {
     grid-template-columns: 1fr;
@@ -38,8 +44,12 @@
 
   /* 従業員リスト */
   .employee-list {
-    max-height: 200px;
+    max-height: 300px;
     overflow-y: auto;
+    position: static !important;
+    left: auto !important;
+    width: 100% !important;
+    box-shadow: none !important;
   }
 
   .list li {
@@ -72,6 +82,7 @@
   .gantt-canvas {
     max-height: 300px;
   }
+
 
   /* 空状態 */
   .empty-state {
@@ -142,9 +153,41 @@
     font-size: 0.9rem;
   }
 
+  /* 大型デジタル時計のモバイル調整 */
+  .digital-clock-container-large {
+    margin: 20px 0;
+  }
+
+  .digital-clock-large {
+    min-width: auto;
+    width: 100%;
+    padding: 24px 20px;
+  }
+
+  .time-large {
+    font-size: 3rem;
+    letter-spacing: 2px;
+  }
+
+  .date-large {
+    font-size: 1.2rem;
+    letter-spacing: 1px;
+  }
+
   /* 詳細ページ */
   .detail-card {
     padding: 12px;
+  }
+
+  /* 収入グラフの上限値設定をモバイル対応 */
+  .income-chart-container > div:first-child {
+    flex-direction: column !important;
+    gap: 12px !important;
+    align-items: flex-start !important;
+  }
+
+  #maxIncomeInput {
+    width: 100px !important;
   }
 
   .detail-card > div {
@@ -337,7 +380,7 @@
   z-index: 1000;
   padding: 0 16px;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
 }
 
 .mobile-title {
@@ -389,26 +432,33 @@
     padding-top: 62px; /* ヘッダー分のスペース */
   }
 
+  /* h1をヘッダーの下に配置 */
+  h1 {
+    margin-top: 8px !important;
+  }
+
   .layout {
     padding-top: 0;
   }
 
-  /* 従業員リストをトグル可能に */
-  .employee-list {
+  /* ガントエリアをトグル可能に */
+  .gantt-area {
     transition: all 0.3s ease;
     position: fixed;
-    left: -100%;
+    right: -100%;
     top: 50px;
     bottom: 0;
-    width: 80%;
-    max-width: 300px;
+    width: 90%;
+    max-width: 500px;
     z-index: 999;
     overflow-y: auto;
-    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+    background: var(--bg);
+    padding: 16px;
+    box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
   }
 
-  .employee-list.show {
-    left: 0;
+  .gantt-area.show {
+    right: 0;
   }
 
   /* オーバーレイ */

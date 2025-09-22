@@ -161,8 +161,14 @@ async function renderEmployeeList() {
       const id = coerceId(emp);
       const node = tpl.content.cloneNode(true);
       const a = node.querySelector('.emp-link');
-      a.textContent = API.escapeHtml(emp?.name ?? String(id ?? ''));
-      a.href = `./detail.html?empId=${encodeURIComponent(id)}`;
+      // IDのみを表示
+      a.textContent = API.escapeHtml(String(id ?? ''));
+      a.href = '#';
+      // クリック時に名前認証を実行
+      a.addEventListener('click', (e) => {
+        e.preventDefault();
+        authenticateEmployee(id, emp?.name ?? '');
+      });
       frag.appendChild(node);
     }
 
@@ -172,6 +178,128 @@ async function renderEmployeeList() {
     console.error('[EMP] list error:', e);
     ul.textContent = '従業員一覧の取得に失敗しました。';
   }
+}
+
+// 従業員認証関数
+function authenticateEmployee(empId, correctName) {
+  const modal = document.createElement('div');
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+  `;
+
+  const dialog = document.createElement('div');
+  dialog.style.cssText = `
+    background: white;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    max-width: 400px;
+    width: 90%;
+  `;
+
+  dialog.innerHTML = `
+    <h3 style="margin: 0 0 20px; font-size: 1.2rem; color: #1a1a1a;">本人確認</h3>
+    <p style="margin: 0 0 15px; color: #666;">ID: <strong>${empId}</strong></p>
+    <p style="margin: 0 0 20px; color: #666;">フルネームを入力してください：</p>
+    <input type="text" id="nameInput" placeholder="フルネーム" style="
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: 1rem;
+      margin-bottom: 8px;
+      box-sizing: border-box;
+    "/>
+    <div id="errorMessage" style="
+      color: #ef4444;
+      font-size: 14px;
+      margin-bottom: 12px;
+      display: none;
+      padding: 8px 12px;
+      background: #fef2f2;
+      border-radius: 6px;
+      border: 1px solid #fecaca;
+    ">名前が正しくありません</div>
+    <div style="display: flex; gap: 10px; justify-content: flex-end;">
+      <button id="cancelBtn" style="
+        padding: 10px 20px;
+        background: #e5e7eb;
+        color: #374151;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 1rem;
+      ">キャンセル</button>
+      <button id="confirmBtn" style="
+        padding: 10px 20px;
+        background: #2563eb;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 1rem;
+      ">確認</button>
+    </div>
+  `;
+
+  modal.appendChild(dialog);
+  document.body.appendChild(modal);
+
+  const input = dialog.querySelector('#nameInput');
+  const confirmBtn = dialog.querySelector('#confirmBtn');
+  const cancelBtn = dialog.querySelector('#cancelBtn');
+  const errorMessage = dialog.querySelector('#errorMessage');
+
+  input.focus();
+
+  // 入力開始時にエラーメッセージを隠す
+  input.addEventListener('input', () => {
+    if (errorMessage.style.display === 'block') {
+      errorMessage.style.display = 'none';
+      input.style.borderColor = '#e5e7eb';
+    }
+  });
+
+  const handleConfirm = () => {
+    const enteredName = input.value.trim();
+    // スペース（全角・半角）を削除して比較
+    const normalizedEntered = enteredName.replace(/[\s\u3000]+/g, '');
+    const normalizedCorrect = correctName.replace(/[\s\u3000]+/g, '');
+
+    if (normalizedEntered === normalizedCorrect) {
+      window.location.href = `./detail.html?empId=${encodeURIComponent(empId)}`;
+    } else {
+      // モーダル内にエラーメッセージを表示
+      errorMessage.style.display = 'block';
+      input.style.borderColor = '#ef4444';
+      input.value = '';
+      input.focus();
+
+      // 3秒後にエラーメッセージを隠す
+      setTimeout(() => {
+        errorMessage.style.display = 'none';
+        input.style.borderColor = '#e5e7eb';
+      }, 3000);
+    }
+  };
+
+  confirmBtn.addEventListener('click', handleConfirm);
+  input.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') handleConfirm();
+  });
+  cancelBtn.addEventListener('click', () => modal.remove());
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) modal.remove();
+  });
 }
 
 /* ==================== ガントチャート更新 ==================== */
@@ -211,47 +339,9 @@ async function refreshGantt() {
   showGanttLoading();
 
   try {
-    // 従業員データ取得
-    const raw = await API.fetchEmployees();
-    const emps = normalizeEmployees(raw);
-
-    // バッチ処理でパフォーマンス最適化
-    const batchSize = 5;
-    const batches = [];
-    for (let i = 0; i < emps.length; i += batchSize) {
-      batches.push(emps.slice(i, i + batchSize));
-    }
-
-    const allHistories = [];
-    for (const batch of batches) {
-      const histories = await Promise.allSettled(
-        batch.map(async (e) => {
-          const id = coerceId(e);
-          if (!id) return [];
-          const rows = await API.fetchHistory({ employeeId: id, days: 1 });
-          return rows
-            .filter(r => normalizeDateStr(r.date) === currentDay)
-            .map(r => ({
-              ...r,
-              employeeId: r.employeeId ?? id,
-              employeeName: r.employeeName || e.name || String(id),
-            }));
-        })
-      );
-      allHistories.push(...histories);
-    }
-
-    // 結果をフラット化
-    const allRows = [];
-    for (const r of allHistories) {
-      if (r.status === 'fulfilled' && Array.isArray(r.value)) {
-        allRows.push(...r.value);
-      } else if (r.status === 'rejected') {
-        console.warn('[GANTT] 履歴取得失敗:', r.reason);
-      }
-    }
-
-    const { intervalsByEmp, orderLabels } = buildClosedIntervalsAndOrder(allRows);
+    // モック出勤予定データを生成
+    const mockScheduleData = generateMockScheduleData();
+    const { intervalsByEmp, orderLabels } = mockScheduleData;
 
     // キャッシュに保存
     saveToCache(intervalsByEmp, orderLabels);
@@ -266,8 +356,93 @@ async function refreshGantt() {
   }
 }
 
+// モック出勤予定データ生成
+function generateMockScheduleData() {
+  // ランダムな日本人の名前を生成
+  const lastNames = ['山田', '鈴木', '田中', '佐藤', '高橋', '伊藤', '渡辺', '中村', '小林', '加藤', '吉田', '山本', '斎藤', '松本', '井上'];
+  const firstNamesMale = ['太郎', '一郎', '健二', '勇気', '大輔', '翔太', '健太', '拓也', '隆', '誠', '浩', '亮', '剛'];
+  const firstNamesFemale = ['花子', '美咲', '真理', '愛', '優子', 'さくら', '陽子', '恵美', '由美', '麻衣', '綾', '舞', '葵'];
 
-/* ==================== 勤務区間の構築 ==================== */
+  // 名前をランダムに組み合わせて生成
+  const generateRandomName = () => {
+    const lastName = lastNames[Math.floor(Math.random() * lastNames.length)];
+    const isFemale = Math.random() > 0.5;
+    const firstNames = isFemale ? firstNamesFemale : firstNamesMale;
+    const firstName = firstNames[Math.floor(Math.random() * firstNames.length)];
+    return `${lastName}${firstName}`;
+  };
+
+  const mockEmployees = [
+    { id: 'E001', name: generateRandomName(), startTime: 9, endTime: 17, position: 'レジ', hasBreak: true },
+    { id: 'E002', name: generateRandomName(), startTime: 10, endTime: 18, position: 'ドリンカー', hasBreak: true },
+    { id: 'E003', name: generateRandomName(), startTime: 11, endTime: 20, position: 'フライヤー', hasBreak: true },
+    { id: 'E004', name: generateRandomName(), startTime: 12, endTime: 21, position: 'バーガー', hasBreak: true },
+    { id: 'E005', name: generateRandomName(), startTime: 9, endTime: 15, position: 'レジ', hasBreak: false },
+    { id: 'E006', name: generateRandomName(), startTime: 15, endTime: 22, position: 'ドリンカー', hasBreak: true },
+    { id: 'E007', name: generateRandomName(), startTime: 13, endTime: 22, position: 'フライヤー', hasBreak: true },
+    { id: 'E008', name: generateRandomName(), startTime: 9, endTime: 18, position: 'バーガー', hasBreak: true },
+  ];
+
+  const intervalsByEmp = new Map();
+  const orderLabels = [];
+
+  for (const emp of mockEmployees) {
+    const workSegments = [];
+    const breakSegments = [];
+
+    // メインの勤務時間
+    const startMin = (emp.startTime - OPEN_HOUR) * 60;
+    const endMin = (emp.endTime - OPEN_HOUR) * 60;
+
+    if (emp.hasBreak && (emp.endTime - emp.startTime) >= 6) {
+      // 休憩がある場合
+      const breakStart = emp.startTime + 3;
+      const breakEnd = breakStart + 1;
+      const breakStartMin = (breakStart - OPEN_HOUR) * 60;
+      const breakEndMin = (breakEnd - OPEN_HOUR) * 60;
+
+      // 休憩前の勤務
+      workSegments.push({
+        startMin: startMin,
+        endMin: breakStartMin,
+        className: posClassName(emp.position),
+      });
+
+      // 休憩
+      breakSegments.push({
+        startMin: breakStartMin,
+        endMin: breakEndMin,
+      });
+
+      // 休憩後の勤務
+      workSegments.push({
+        startMin: breakEndMin,
+        endMin: endMin,
+        className: posClassName(emp.position),
+      });
+    } else {
+      // 休憩なし
+      workSegments.push({
+        startMin: startMin,
+        endMin: endMin,
+        className: posClassName(emp.position),
+      });
+    }
+
+    intervalsByEmp.set(emp.id, {
+      name: emp.name,
+      work: workSegments,
+      breaks: breakSegments
+    });
+
+    orderLabels.push(emp.name);
+  }
+
+  return { intervalsByEmp, orderLabels };
+}
+
+
+/* ==================== 勤務区間の構築（実データ処理用・現在未使用） ==================== */
 function buildClosedIntervalsAndOrder(rows) {
   const byEmp = groupBy(rows, r => String(r.employeeId));
   const result = new Map();
@@ -347,7 +522,7 @@ function buildClosedIntervalsAndOrder(rows) {
     }
   });
 
-  // 最新退勤が上に表示
+  // 時刻順にソート（実際の退勤データを処理する場合に使用）
   order.sort((a, b) => b.lastEndTS - a.lastEndTS);
   const labels = order.map(o => o.name);
   return { intervalsByEmp: result, orderLabels: labels };
@@ -738,42 +913,42 @@ function setupNetworkHandlers() {
 /* ==================== モバイルメニュー制御 ==================== */
 function setupMobileMenu() {
   const menuToggle = document.getElementById('menuToggle');
-  const employeeList = document.querySelector('.employee-list');
+  const ganttArea = document.querySelector('.gantt-area');
   const mobileOverlay = document.getElementById('mobileOverlay');
 
-  if (!menuToggle || !employeeList || !mobileOverlay) return;
+  if (!menuToggle || !ganttArea || !mobileOverlay) return;
 
   // メニュートグルボタンのクリックイベント
   menuToggle.addEventListener('click', () => {
-    const isOpen = employeeList.classList.contains('show');
+    const isOpen = ganttArea.classList.contains('show');
 
     if (isOpen) {
-      // メニューを閉じる
-      employeeList.classList.remove('show');
+      // グラフを閉じる
+      ganttArea.classList.remove('show');
       mobileOverlay.classList.remove('show');
       menuToggle.classList.remove('active');
       menuToggle.setAttribute('aria-expanded', 'false');
     } else {
-      // メニューを開く
-      employeeList.classList.add('show');
+      // グラフを開く
+      ganttArea.classList.add('show');
       mobileOverlay.classList.add('show');
       menuToggle.classList.add('active');
       menuToggle.setAttribute('aria-expanded', 'true');
     }
   });
 
-  // オーバーレイクリックでメニューを閉じる
+  // オーバーレイクリックでグラフを閉じる
   mobileOverlay.addEventListener('click', () => {
-    employeeList.classList.remove('show');
+    ganttArea.classList.remove('show');
     mobileOverlay.classList.remove('show');
     menuToggle.classList.remove('active');
     menuToggle.setAttribute('aria-expanded', 'false');
   });
 
-  // ESCキーでメニューを閉じる
+  // ESCキーでグラフを閉じる
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && employeeList.classList.contains('show')) {
-      employeeList.classList.remove('show');
+    if (e.key === 'Escape' && ganttArea.classList.contains('show')) {
+      ganttArea.classList.remove('show');
       mobileOverlay.classList.remove('show');
       menuToggle.classList.remove('active');
       menuToggle.setAttribute('aria-expanded', 'false');

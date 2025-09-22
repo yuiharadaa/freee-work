@@ -8,40 +8,19 @@
   <title>freee 従業員詳細</title>
   <link rel="stylesheet" href="./style.css?v=42" />
   <link rel="stylesheet" href="./responsive.css?v=1" />
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.5/dist/chart.umd.min.js"></script>
 </head>
 <body>
-  <a href="./index.html">← 一覧へ戻る</a>
-  <h1>従業員の詳細</h1>
+  <a href="./index.html" style="display: inline-block; margin-bottom: 16px; color: var(--text); text-decoration: none;">← 一覧へ戻る</a>
 
-  <!-- ✅ KPI（今月/時計/年）レイアウト -->
-<div class="kpi-row">
-  <!-- 左：今月の給料（大きな数値表示） -->
-  <div class="kpi-card big-number">
-    <div class="kpi-title">今月の給料</div>
-    <div id="monthlyTotalText" class="big-figure">¥0</div>
-    <small>目安: <span id="monthlyCapText">¥0</span></small>
-  </div>
+  <h1 style="text-align: center; font-size: 2rem; font-weight: 700; margin: 0 0 24px; color: var(--text);">従業員勤怠管理</h1>
 
-  <!-- 中央：デジタル時計（既存DOMをそのまま移動） -->
-  <div class="digital-clock-container">
-    <div id="digitalClock" class="digital-clock">
-      <span class="time">--:--:--</span>
-      <span class="date">----年--月--日</span>
+  <!-- デジタル時計（大型版） -->
+  <div class="digital-clock-container-large">
+    <div id="digitalClock" class="digital-clock-large">
+      <span class="time-large">--:--:--</span>
+      <span class="date-large">----年--月--日</span>
     </div>
   </div>
-
-  <!-- 右：今年の給料（ドーナツ） -->
-  <div class="kpi-card">
-    <div class="kpi-title">今年の給料</div>
-    <canvas id="annualPie" width="220" height="220" aria-label="今年の給料 円グラフ"></canvas>
-    <div class="kpi-fig">
-      <span id="annualTotalText">¥0</span>
-      <small>上限: <span id="annualCapText">¥1,030,000</span></small>
-    </div>
-  </div>
-</div>
-
 
   <div class="detail-card">
     <div><strong>従業員ID:</strong> <span id="empId">-</span></div>
@@ -81,6 +60,44 @@
     </div>
   </div>
 
+  <!-- 今年の収入円グラフ -->
+  <div class="income-chart-container" style="margin:16px 0; padding:20px; background:#fff; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.1); position:relative; min-height:260px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin:0 0 16px;">
+      <h3 style="margin:0; font-size:1.1rem; color:#1a1a1a;">今年の収入状況</h3>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <input type="text" id="maxIncomeInput" placeholder="上限値" value="1,500,000" min="0"
+               style="width:120px; padding:6px 8px; border:1px solid #e5e7eb; border-radius:6px; font-size:14px;">
+        <span style="color:#6b7280; font-size:14px;">円</span>
+        <button id="updateMaxIncome" style="padding:6px 12px; background:#2563eb; color:white; border:none; border-radius:6px; cursor:pointer; font-size:14px;">
+          更新
+        </button>
+      </div>
+    </div>
+    <div id="incomeContent" style="display:flex; align-items:center; gap:40px; flex-wrap:wrap;">
+      <div style="position:relative; width:200px; height:200px;">
+        <canvas id="incomeChart" width="200" height="200"></canvas>
+      </div>
+      <div>
+        <div style="font-size:1.5rem; font-weight:bold; color:#1a1a1a; margin-bottom:8px;">
+          <span id="totalIncome">¥0</span>
+        </div>
+        <div style="color:#6b7280; margin-bottom:12px;">
+          上限値: <span id="maxIncomeDisplay">¥1,500,000</span>
+        </div>
+        <div style="width:200px; height:8px; background:#e5e7eb; border-radius:4px; overflow:hidden;">
+          <div id="progressBar" style="height:100%; background:linear-gradient(90deg, #2563eb, #0ea5e9); border-radius:4px; transition:width 0.3s ease;"></div>
+        </div>
+        <div style="color:#6b7280; font-size:0.9rem; margin-top:4px;">
+          上限値の <span id="progressPercent">0%</span>
+        </div>
+      </div>
+    </div>
+    <!-- 収入セクション専用ローディング -->
+    <div id="incomeLoading" style="position:absolute; top:0; left:0; right:0; bottom:0; background:rgba(255,255,255,0.95); border-radius:8px; display:none; align-items:center; justify-content:center; z-index:10;">
+      <div class="inline-loader">収入データを計算中</div>
+    </div>
+  </div>
+
   <h3 style="margin:16px 0 8px;">直近の履歴</h3>
   <div class="table-wrapper">
     <table class="table">
@@ -107,8 +124,11 @@
     <div class="loading-spinner"></div>
   </div>
 
+  <!-- Chart.js 追加 -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+
   <!-- cache-busting を付けて古いJSを掴まないように -->
   <script src="./api.js?v=42"></script>
-  <script src="./detail.js?v=46"></script>
+  <script src="./detail.js?v=47"></script>
 </body>
 </html>
