@@ -1,4 +1,4 @@
-// index.js - 勤怠管理システム メインページ
+// index.js v50 - 勤怠管理システム（退勤トリガで実データを描画）
 
 /* ==================== 定数定義 ==================== */
 const OPEN_HOUR = 9;
@@ -20,6 +20,7 @@ const POS_COLOR = {
 const BC_CHANNEL_NAME = 'punch';
 const BC_DEBOUNCE_MS = 300;
 const BC_THROTTLE_MS = 2000;
+// const USE_MOCK = false; // ※デバッグ時だけ true にする（今回デフォは実データ）
 
 /* ==================== グローバル状態 ==================== */
 let currentDay = ymd(new Date());
@@ -36,61 +37,41 @@ function showGanttLoading() {
   const loadingEl = document.getElementById('ganttLoading');
   if (loadingEl) loadingEl.style.display = 'flex';
 }
-
 function hideGanttLoading() {
   const loadingEl = document.getElementById('ganttLoading');
   if (loadingEl) loadingEl.style.display = 'none';
 }
-
 function showInlineLoader(element, message = '読み込み中') {
   if (!element) return;
   element.innerHTML = `<span class="inline-loader">${message}</span>`;
 }
-
 function showErrorMessage(message) {
   const container = document.createElement('div');
   container.className = 'error-message';
   container.textContent = message;
   container.style.cssText = `
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    background: #ef4444;
-    color: white;
-    padding: 12px 20px;
-    border-radius: 8px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    z-index: 10000;
-    animation: slideIn 0.3s ease;
+    position: fixed; top: 20px; right: 20px;
+    background: #ef4444; color: white; padding: 12px 20px;
+    border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    z-index: 10000; animation: slideIn 0.3s ease;
   `;
-
   document.body.appendChild(container);
-
   setTimeout(() => {
     container.style.animation = 'slideOut 0.3s ease';
     setTimeout(() => container.remove(), 300);
   }, 3000);
 }
-
 function showSuccessMessage(message) {
   const container = document.createElement('div');
   container.className = 'success-message';
   container.textContent = message;
   container.style.cssText = `
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    background: #22c55e;
-    color: white;
-    padding: 12px 20px;
-    border-radius: 8px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    z-index: 10000;
-    animation: slideIn 0.3s ease;
+    position: fixed; top: 20px; right: 20px;
+    background: #22c55e; color: white; padding: 12px 20px;
+    border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    z-index: 10000; animation: slideIn 0.3s ease;
   `;
-
   document.body.appendChild(container);
-
   setTimeout(() => {
     container.style.animation = 'slideOut 0.3s ease';
     setTimeout(() => container.remove(), 300);
@@ -99,46 +80,36 @@ function showSuccessMessage(message) {
 
 /* ==================== 初期化処理 ==================== */
 window.addEventListener('DOMContentLoaded', async () => {
-  // 1. ガントチャートエリアを初期化して即座にローディング表示
   initGanttCanvas();
   showGanttLoading();
 
-  // 2. キャッシュからデータ復元試行
+  // 直近5分のキャッシュがあれば即描画
   const cached = loadFromCache();
   if (cached && cached.intervals.size > 0) {
     renderChartFromIntervals(cached.intervals, cached.labels);
     hideGanttLoading();
   } else {
-    // キャッシュがない場合は空状態を表示
-    renderChartFromIntervals(new Map(), []);
+    renderChartFromIntervals(new Map(), []); // 空状態
   }
 
-  // 3. 従業員一覧とガントチャートを並列で取得
+  // 従業員一覧とガントの初回取得
   const [employeeResult] = await Promise.allSettled([
     renderEmployeeList(),
     requestRefresh()
   ]);
-
-  // エラーハンドリング
   if (employeeResult.status === 'rejected') {
     console.error('従業員一覧の取得に失敗:', employeeResult.reason);
   }
 
-  // 4. イベント設定
   setupBroadcastChannel();
   setMidnightTimer();
-
-  // 5. オンライン/オフライン対応
   setupNetworkHandlers();
-
-  // 6. モバイルメニューの設定
   setupMobileMenu();
 });
 
 function initGanttCanvas() {
   const canvas = document.getElementById('ganttCanvas');
   if (canvas) {
-    // 初期状態ではcanvasを非表示に
     canvas.style.display = 'none';
     canvas.style.overflow = 'hidden';
   }
@@ -161,10 +132,10 @@ async function renderEmployeeList() {
       const id = coerceId(emp);
       const node = tpl.content.cloneNode(true);
       const a = node.querySelector('.emp-link');
-      // IDのみを表示
+
+      // IDのみを表示（クリックで認証モーダル）
       a.textContent = API.escapeHtml(String(id ?? ''));
       a.href = '#';
-      // クリック時に名前認証を実行
       a.addEventListener('click', (e) => {
         e.preventDefault();
         authenticateEmployee(id, emp?.name ?? '');
@@ -180,77 +151,35 @@ async function renderEmployeeList() {
   }
 }
 
-// 従業員認証関数
+// 本人確認モーダル
 function authenticateEmployee(empId, correctName) {
   const modal = document.createElement('div');
   modal.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 10000;
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    display: flex; align-items: center; justify-content: center; z-index: 10000;
   `;
 
   const dialog = document.createElement('div');
   dialog.style.cssText = `
-    background: white;
-    padding: 30px;
-    border-radius: 12px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-    max-width: 400px;
-    width: 90%;
+    background: white; padding: 30px; border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2); max-width: 400px; width: 90%;
   `;
-
   dialog.innerHTML = `
-    <h3 style="margin: 0 0 20px; font-size: 1.2rem; color: #1a1a1a;">本人確認</h3>
-    <p style="margin: 0 0 15px; color: #666;">ID: <strong>${empId}</strong></p>
-    <p style="margin: 0 0 20px; color: #666;">フルネームを入力してください：</p>
+    <h3 style="margin:0 0 20px; font-size: 1.2rem; color:#1a1a1a;">本人確認</h3>
+    <p style="margin:0 0 15px; color:#666;">ID: <strong>${empId}</strong></p>
+    <p style="margin:0 0 20px; color:#666;">フルネームを入力してください：</p>
     <input type="text" id="nameInput" placeholder="フルネーム" style="
-      width: 100%;
-      padding: 12px;
-      border: 2px solid #e5e7eb;
-      border-radius: 8px;
-      font-size: 1rem;
-      margin-bottom: 8px;
-      box-sizing: border-box;
-    "/>
+      width:100%; padding:12px; border:2px solid #e5e7eb; border-radius:8px; font-size:1rem; margin-bottom:8px; box-sizing:border-box;"/>
     <div id="errorMessage" style="
-      color: #ef4444;
-      font-size: 14px;
-      margin-bottom: 12px;
-      display: none;
-      padding: 8px 12px;
-      background: #fef2f2;
-      border-radius: 6px;
-      border: 1px solid #fecaca;
-    ">名前が正しくありません</div>
-    <div style="display: flex; gap: 10px; justify-content: flex-end;">
-      <button id="cancelBtn" style="
-        padding: 10px 20px;
-        background: #e5e7eb;
-        color: #374151;
-        border: none;
-        border-radius: 8px;
-        cursor: pointer;
-        font-size: 1rem;
-      ">キャンセル</button>
-      <button id="confirmBtn" style="
-        padding: 10px 20px;
-        background: #2563eb;
-        color: white;
-        border: none;
-        border-radius: 8px;
-        cursor: pointer;
-        font-size: 1rem;
-      ">確認</button>
+      color:#ef4444; font-size:14px; margin-bottom:12px; display:none;
+      padding:8px 12px; background:#fef2f2; border-radius:6px; border:1px solid #fecaca;">
+      名前が正しくありません
+    </div>
+    <div style="display:flex; gap:10px; justify-content:flex-end;">
+      <button id="cancelBtn" style="padding:10px 20px; background:#e5e7eb; color:#374151; border:none; border-radius:8px; cursor:pointer; font-size:1rem;">キャンセル</button>
+      <button id="confirmBtn" style="padding:10px 20px; background:#2563eb; color:white; border:none; border-radius:8px; cursor:pointer; font-size:1rem;">確認</button>
     </div>
   `;
-
   modal.appendChild(dialog);
   document.body.appendChild(modal);
 
@@ -258,10 +187,8 @@ function authenticateEmployee(empId, correctName) {
   const confirmBtn = dialog.querySelector('#confirmBtn');
   const cancelBtn = dialog.querySelector('#cancelBtn');
   const errorMessage = dialog.querySelector('#errorMessage');
-
   input.focus();
 
-  // 入力開始時にエラーメッセージを隠す
   input.addEventListener('input', () => {
     if (errorMessage.style.display === 'block') {
       errorMessage.style.display = 'none';
@@ -271,20 +198,15 @@ function authenticateEmployee(empId, correctName) {
 
   const handleConfirm = () => {
     const enteredName = input.value.trim();
-    // スペース（全角・半角）を削除して比較
     const normalizedEntered = enteredName.replace(/[\s\u3000]+/g, '');
-    const normalizedCorrect = correctName.replace(/[\s\u3000]+/g, '');
-
+    const normalizedCorrect = (correctName || '').replace(/[\s\u3000]+/g, '');
     if (normalizedEntered === normalizedCorrect) {
       window.location.href = `./detail.html?empId=${encodeURIComponent(empId)}`;
     } else {
-      // モーダル内にエラーメッセージを表示
       errorMessage.style.display = 'block';
       input.style.borderColor = '#ef4444';
       input.value = '';
       input.focus();
-
-      // 3秒後にエラーメッセージを隠す
       setTimeout(() => {
         errorMessage.style.display = 'none';
         input.style.borderColor = '#e5e7eb';
@@ -293,27 +215,21 @@ function authenticateEmployee(empId, correctName) {
   };
 
   confirmBtn.addEventListener('click', handleConfirm);
-  input.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') handleConfirm();
-  });
+  input.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleConfirm(); });
   cancelBtn.addEventListener('click', () => modal.remove());
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) modal.remove();
-  });
+  modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
 }
 
-/* ==================== ガントチャート更新 ==================== */
+/* ==================== ガントチャート更新（退勤トリガ対応の実データ版） ==================== */
 let refreshDebounceTimer = null;
 
 async function requestRefresh() {
-  // デバウンス処理
   clearTimeout(refreshDebounceTimer);
   refreshDebounceTimer = setTimeout(async () => {
     if (refreshing) {
       queued = true;
       return;
     }
-
     refreshing = true;
     try {
       await refreshGantt();
@@ -337,112 +253,75 @@ async function refreshGantt() {
   if (!canvas) return;
 
   showGanttLoading();
-
   try {
-    // モック出勤予定データを生成
-    const mockScheduleData = generateMockScheduleData();
-    const { intervalsByEmp, orderLabels } = mockScheduleData;
+    // 実データ取得（当日分）
+    const rows = await fetchTodayRowsAllEmployees();
 
-    // キャッシュに保存
+    // 打刻行→閉区間へ整形
+    const { intervalsByEmp, orderLabels } = buildClosedIntervalsAndOrder(rows);
+
+    // キャッシュ & 描画
     saveToCache(intervalsByEmp, orderLabels);
-
-    hideGanttLoading();
     renderChartFromIntervals(intervalsByEmp, orderLabels);
   } catch (error) {
     console.error('[GANTT] エラー:', error);
-    hideGanttLoading();
     showErrorMessage('データの取得に失敗しました');
     renderChartFromIntervals(new Map(), []);
+  } finally {
+    hideGanttLoading();
   }
 }
 
-// モック出勤予定データ生成
-function generateMockScheduleData() {
-  // ランダムな日本人の名前を生成
-  const lastNames = ['山田', '鈴木', '田中', '佐藤', '高橋', '伊藤', '渡辺', '中村', '小林', '加藤', '吉田', '山本', '斎藤', '松本', '井上'];
-  const firstNamesMale = ['太郎', '一郎', '健二', '勇気', '大輔', '翔太', '健太', '拓也', '隆', '誠', '浩', '亮', '剛'];
-  const firstNamesFemale = ['花子', '美咲', '真理', '愛', '優子', 'さくら', '陽子', '恵美', '由美', '麻衣', '綾', '舞', '葵'];
+/* === 当日分を全員ぶん集約 === */
+async function fetchTodayRowsAllEmployees() {
+  const today = new Date();
+  const from = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0);
+  const to   = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
 
-  // 名前をランダムに組み合わせて生成
-  const generateRandomName = () => {
-    const lastName = lastNames[Math.floor(Math.random() * lastNames.length)];
-    const isFemale = Math.random() > 0.5;
-    const firstNames = isFemale ? firstNamesFemale : firstNamesMale;
-    const firstName = firstNames[Math.floor(Math.random() * firstNames.length)];
-    return `${lastName}${firstName}`;
-  };
+  // 従業員一覧
+  const employees = normalizeEmployees(await API.fetchEmployees());
 
-  const mockEmployees = [
-    { id: 'E001', name: generateRandomName(), startTime: 9, endTime: 17, position: 'レジ', hasBreak: true },
-    { id: 'E002', name: generateRandomName(), startTime: 10, endTime: 18, position: 'ドリンカー', hasBreak: true },
-    { id: 'E003', name: generateRandomName(), startTime: 11, endTime: 20, position: 'フライヤー', hasBreak: true },
-    { id: 'E004', name: generateRandomName(), startTime: 12, endTime: 21, position: 'バーガー', hasBreak: true },
-    { id: 'E005', name: generateRandomName(), startTime: 9, endTime: 15, position: 'レジ', hasBreak: false },
-    { id: 'E006', name: generateRandomName(), startTime: 15, endTime: 22, position: 'ドリンカー', hasBreak: true },
-    { id: 'E007', name: generateRandomName(), startTime: 13, endTime: 22, position: 'フライヤー', hasBreak: true },
-    { id: 'E008', name: generateRandomName(), startTime: 9, endTime: 18, position: 'バーガー', hasBreak: true },
-  ];
+  // 各従業員の当日履歴を取得（並列）
+  const results = await Promise.allSettled(
+    employees.map(emp => API.fetchHistory({
+      employeeId: coerceId(emp),
+      from, to
+    }))
+  );
 
-  const intervalsByEmp = new Map();
-  const orderLabels = [];
-
-  for (const emp of mockEmployees) {
-    const workSegments = [];
-    const breakSegments = [];
-
-    // メインの勤務時間
-    const startMin = (emp.startTime - OPEN_HOUR) * 60;
-    const endMin = (emp.endTime - OPEN_HOUR) * 60;
-
-    if (emp.hasBreak && (emp.endTime - emp.startTime) >= 6) {
-      // 休憩がある場合
-      const breakStart = emp.startTime + 3;
-      const breakEnd = breakStart + 1;
-      const breakStartMin = (breakStart - OPEN_HOUR) * 60;
-      const breakEndMin = (breakEnd - OPEN_HOUR) * 60;
-
-      // 休憩前の勤務
-      workSegments.push({
-        startMin: startMin,
-        endMin: breakStartMin,
-        className: posClassName(emp.position),
-      });
-
-      // 休憩
-      breakSegments.push({
-        startMin: breakStartMin,
-        endMin: breakEndMin,
-      });
-
-      // 休憩後の勤務
-      workSegments.push({
-        startMin: breakEndMin,
-        endMin: endMin,
-        className: posClassName(emp.position),
-      });
+  // フラット化＋正規化
+  const allRows = [];
+  results.forEach((res, idx) => {
+    const emp = employees[idx];
+    if (res.status === 'fulfilled') {
+      const normalized = normalizeRows(res.value, emp);
+      allRows.push(...normalized);
     } else {
-      // 休憩なし
-      workSegments.push({
-        startMin: startMin,
-        endMin: endMin,
-        className: posClassName(emp.position),
-      });
+      console.warn('[HISTORY] failed for', emp, res.reason);
     }
+  });
 
-    intervalsByEmp.set(emp.id, {
-      name: emp.name,
-      work: workSegments,
-      breaks: breakSegments
-    });
-
-    orderLabels.push(emp.name);
-  }
-
-  return { intervalsByEmp, orderLabels };
+  return allRows;
 }
 
+/* === API返却の差異を吸収して既存整形関数が読める形に === */
+function normalizeRows(rawRows, fallbackEmp = null) {
+  return (rawRows ?? []).map(r => {
+    const employeeId = String(
+      r.employeeId ?? r.empId ?? r.id ?? fallbackEmp?.id ?? fallbackEmp?.employeeId ?? ''
+    ).trim();
+    const employeeName = String(
+      r.employeeName ?? r.name ?? fallbackEmp?.name ?? ''
+    ).trim();
+    const punchType = String(r.punchType ?? r.type ?? '').trim(); // 出勤/休憩開始/休憩終了/退勤
+    const position = String(r.position ?? r.pos ?? 'レジ').trim();
+    const date = normalizeDateStr(r.date ?? r.dt ?? r.yyyymmdd ?? '');
+    const time = String(r.time ?? r.hhmm ?? r.hhmmss ?? '00:00:00').trim();
+    return { employeeId, employeeName, punchType, position, date, time };
+  });
+}
 
-/* ==================== 勤務区間の構築（実データ処理用・現在未使用） ==================== */
+/* ==================== 勤務区間の構築（既存関数：実データ対応） ==================== */
 function buildClosedIntervalsAndOrder(rows) {
   const byEmp = groupBy(rows, r => String(r.employeeId));
   const result = new Map();
@@ -469,7 +348,6 @@ function buildClosedIntervalsAndOrder(rows) {
           currentPos = ev.position || 'レジ';
           breakStart = null;
           break;
-
         case '休憩開始':
           if (currentStart) {
             const seg = clip(currentStart, t, dayS, dayE);
@@ -484,7 +362,6 @@ function buildClosedIntervalsAndOrder(rows) {
             currentStart = null;
           }
           break;
-
         case '休憩終了':
           if (breakStart) {
             const seg = clip(breakStart, t, dayS, dayE);
@@ -497,7 +374,6 @@ function buildClosedIntervalsAndOrder(rows) {
             currentStart = t;
           }
           break;
-
         case '退勤':
           if (currentStart) {
             const seg = clip(currentStart, t, dayS, dayE);
@@ -522,7 +398,6 @@ function buildClosedIntervalsAndOrder(rows) {
     }
   });
 
-  // 時刻順にソート（実際の退勤データを処理する場合に使用）
   order.sort((a, b) => b.lastEndTS - a.lastEndTS);
   const labels = order.map(o => o.name);
   return { intervalsByEmp: result, orderLabels: labels };
@@ -549,22 +424,16 @@ function renderChartFromIntervals(intervalsByEmp, orderedLabels) {
   // 空の場合
   if (totalBars === 0 || names.length === 0) {
     destroyChart();
-
-    // canvasを非表示にして空状態メッセージを表示
     canvas.style.display = 'none';
-
-    // 空状態メッセージを表示
     if (emptyMsg) {
       emptyMsg.style.display = 'flex';
-      // ローディングが表示されている場合は非表示に
       hideGanttLoading();
     }
-
     lastSig = 'EMPTY';
     return;
   }
 
-  // データがある場合はcanvasを表示
+  // データあり：canvas表示
   canvas.style.display = 'block';
 
   // キャンバスサイズ設定
@@ -576,17 +445,15 @@ function renderChartFromIntervals(intervalsByEmp, orderedLabels) {
   // 差分チェック
   const sig = makeSignature(names, datasets);
   if (sig === lastSig) {
-    // 空状態メッセージを非表示（データがある場合）
     if (emptyMsg) emptyMsg.style.display = 'none';
     return;
   }
   lastSig = sig;
 
-  // チャート再作成
+  // 再作成
   destroyChart();
   createChart(canvas, names, datasets, canvasHeight);
 
-  // 空状態メッセージを非表示（データがある場合）
   if (emptyMsg) emptyMsg.style.display = 'none';
 }
 
@@ -641,7 +508,6 @@ function createChart(canvas, names, datasets, canvasHeight) {
     }
   };
 
-  // サイズ設定
   const parent = canvas.parentElement;
   const maxWidth = parent ? parent.clientWidth : 800;
   canvas.width = Math.min(maxWidth, 800);
@@ -671,7 +537,6 @@ function toChartDatasets(intervalsByEmp) {
       });
       byPos.set(posName, arr);
     }
-
     // 休憩セグメント
     for (const seg of info.breaks) {
       const arr = byPos.get('休憩') || [];
@@ -724,7 +589,7 @@ function setMidnightTimer() {
   setTimeout(() => {
     currentDay = ymd(new Date());
     lastSig = 'EMPTY';
-    renderChartFromIntervals(new Map(), []);
+    renderChartFromIntervals(new Map(), []); // 日付切替直後は空表示
     setMidnightTimer();
   }, next - now);
 }
@@ -737,10 +602,9 @@ function normalizeEmployees(raw) {
   console.warn('[EMP] payload not array:', raw);
   return [];
 }
-
 function coerceId(emp) {
   if (!emp) return null;
-  const cand = emp.id ?? emp.employeeId;
+  const cand = emp.id ?? emp.employeeId ?? emp.ID ?? emp.Id;
   if (cand === null || cand === undefined) return null;
   const s = String(cand).trim();
   return s.length > 0 ? s : null;
@@ -752,6 +616,7 @@ function posClassName(position) {
   const posMap = {
     'レジ': 'pos-reji',
     'ドリンク': 'pos-drink',
+    'ドリンカー': 'pos-drink',
     'フライヤー': 'pos-fry',
     'バーガー': 'pos-burger',
     'reji': 'pos-reji',
@@ -759,10 +624,9 @@ function posClassName(position) {
     'fry': 'pos-fry',
     'burger': 'pos-burger'
   };
-  const normalized = position.toLowerCase().trim();
+  const normalized = String(position).toLowerCase().trim();
   return posMap[position] || posMap[normalized] || 'pos-reji';
 }
-
 function classToPosName(cls) {
   if (!cls) return 'レジ';
   const s = String(cls);
@@ -779,17 +643,14 @@ function businessDayBounds(d) {
   const e = new Date(d.getFullYear(), d.getMonth(), d.getDate(), CLOSE_HOUR, 0, 0);
   return [s, e];
 }
-
 function minutesFromOpen(d) {
   return (d.getHours() - OPEN_HOUR) * 60 + d.getMinutes();
 }
-
 function clip(s, e, dayS, dayE) {
   const start = new Date(Math.max(s, dayS));
   const end = new Date(Math.min(e, dayE));
   return end > start ? { start, end } : null;
 }
-
 function dayBoundsISO(d = new Date()) {
   const y = d.getFullYear(), m = d.getMonth(), day = d.getDate();
   return {
@@ -797,12 +658,10 @@ function dayBoundsISO(d = new Date()) {
     max: new Date(y, m, day, CLOSE_HOUR, 0, 0).toISOString(),
   };
 }
-
 function todayOpenMillis() {
   const base = new Date();
   return new Date(base.getFullYear(), base.getMonth(), base.getDate(), OPEN_HOUR, 0, 0).getTime();
 }
-
 function toISO(openMillis, minutesFromOpen_) {
   return new Date(openMillis + minutesFromOpen_ * 60 * 1000).toISOString();
 }
@@ -822,20 +681,18 @@ function groupBy(arr, keyFn) {
 function ts(r) {
   return asDate(r.date, r.time).getTime();
 }
-
 function normalizeDateStr(s) {
   return String(s || '').trim().replace(/\./g, '-').replace(/\//g, '-');
 }
-
 function asDate(dateStr, timeStr) {
   const d = normalizeDateStr(dateStr);
   let t = String(timeStr || '00:00:00').trim();
   const parts = t.split(':').map(p => p.padStart(2, '0'));
   while (parts.length < 3) parts.push('00');
   t = parts.slice(0, 3).join(':');
+  // ローカル時刻での Date 化（GAS 側と整合していればOK）
   return new Date(`${d}T${t}`);
 }
-
 function ymd(d) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -869,29 +726,21 @@ function saveToCache(intervalsByEmp, orderLabels) {
     console.warn('キャッシュ保存失敗:', e);
   }
 }
-
 function loadFromCache() {
   try {
     const cached = localStorage.getItem('gantt_cache');
     if (!cached) return null;
 
     const data = JSON.parse(cached);
-    // 日付が違う場合はキャッシュ無効
     if (data.day !== currentDay) {
       localStorage.removeItem('gantt_cache');
       return null;
     }
-
-    // 5分以上古い場合はキャッシュ無効
     if (Date.now() - data.timestamp > 5 * 60 * 1000) {
       localStorage.removeItem('gantt_cache');
       return null;
     }
-
-    return {
-      intervals: new Map(data.intervals),
-      labels: data.labels
-    };
+    return { intervals: new Map(data.intervals), labels: data.labels };
   } catch (e) {
     console.warn('キャッシュ読み込み失敗:', e);
     return null;
@@ -904,7 +753,6 @@ function setupNetworkHandlers() {
     showSuccessMessage('オンラインに復帰しました');
     requestRefresh();
   });
-
   window.addEventListener('offline', () => {
     showErrorMessage('オフラインです - キャッシュデータを表示中');
   });
@@ -915,21 +763,16 @@ function setupMobileMenu() {
   const menuToggle = document.getElementById('menuToggle');
   const ganttArea = document.querySelector('.gantt-area');
   const mobileOverlay = document.getElementById('mobileOverlay');
-
   if (!menuToggle || !ganttArea || !mobileOverlay) return;
 
-  // メニュートグルボタンのクリックイベント
   menuToggle.addEventListener('click', () => {
     const isOpen = ganttArea.classList.contains('show');
-
     if (isOpen) {
-      // グラフを閉じる
       ganttArea.classList.remove('show');
       mobileOverlay.classList.remove('show');
       menuToggle.classList.remove('active');
       menuToggle.setAttribute('aria-expanded', 'false');
     } else {
-      // グラフを開く
       ganttArea.classList.add('show');
       mobileOverlay.classList.add('show');
       menuToggle.classList.add('active');
@@ -937,7 +780,6 @@ function setupMobileMenu() {
     }
   });
 
-  // オーバーレイクリックでグラフを閉じる
   mobileOverlay.addEventListener('click', () => {
     ganttArea.classList.remove('show');
     mobileOverlay.classList.remove('show');
@@ -945,7 +787,6 @@ function setupMobileMenu() {
     menuToggle.setAttribute('aria-expanded', 'false');
   });
 
-  // ESCキーでグラフを閉じる
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && ganttArea.classList.contains('show')) {
       ganttArea.classList.remove('show');
