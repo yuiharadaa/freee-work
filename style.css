@@ -360,3 +360,143 @@ button:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
   }
   .income-stats .bar { width: 100%; max-width: 260px; }
 }
+
+/* ==================== 明るいポップ・テーマ（オプトイン） ==================== */
+/* 使い方：<body class="theme-pop"> を付けるだけ。外せば元に戻る */
+body.theme-pop{
+  /* 既存の変数名はそのまま活かし、値だけを“明るいポップ”に上書き */
+  --bg: #FFF9F2;            /* クリーム */
+  --card: #FFFFFF;
+  --text: #222222;
+  --muted: #6b7280;
+  --border: #fde7d5;        /* 少し暖色寄りのボーダー */
+  --shadow: 0 6px 24px rgba(0,0,0,.08);
+  --radius: 16px;
+}
+
+/* カード/テーブルの雰囲気を柔らかく */
+body.theme-pop .card,
+body.theme-pop .detail-card{
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+  border-color: var(--border);
+}
+
+body.theme-pop .table{
+  border-radius: 16px;
+  overflow: hidden;
+  border-color: var(--border);
+}
+body.theme-pop .table thead th{
+  background: #FFF1E6; /* ほんのりオレンジ */
+  color: #374151;
+}
+
+/* 戻るリンクを“目立つピルボタン”に */
+body.theme-pop .back-link{
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: #FF7A59;   /* コーラル */
+  color: #fff;
+  border-radius: 999px;
+  padding: 10px 14px;
+  box-shadow: 0 2px 10px rgba(255,122,89,.25);
+}
+body.theme-pop .back-link:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(255,122,89,.25);
+}
+
+/* デジタル時計を少しポップに（既存クラスはそのまま） */
+body.theme-pop .digital-clock{
+  background: linear-gradient(90deg, rgba(255,122,89,.08), rgba(48,213,200,.08));
+  border: 1px solid var(--border);
+  font-variant-numeric: tabular-nums;
+  border-radius: 16px;
+}
+
+/* 年間ドーナツをコンパクトにできる補助クラス（任意） */
+.chart--sm{ width:160px; height:160px; } /* <canvas id="annualSalaryChart" class="chart--sm"> */
+
+/* ピル型チップ（ポジション表示に使える：任意でHTMLに .chip を置くだけ） */
+body.theme-pop .chips{ display:flex; flex-wrap:wrap; gap:8px; }
+body.theme-pop .chip{
+  padding:6px 12px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 12px;
+  background:#fff;
+  border:1px solid rgba(0,0,0,.06);
+  box-shadow: 0 2px 8px rgba(0,0,0,.06);
+}
+body.theme-pop .chip.reji   { background: rgba(255,122,89,.12);  color:#B23E1B; }  /* レジ */
+body.theme-pop .chip.drink  { background: rgba(48,213,200,.14);  color:#126B64; }  /* ドリンカー */
+body.theme-pop .chip.fry    { background: rgba(255,183,3,.16);   color:#8A5C00; }  /* フライヤー */
+body.theme-pop .chip.burger { background: rgba(34,197,94,.14);   color:#0F6B35; }  /* バーガー */
+
+/* ステータス・バッジ（出勤/休憩/退勤の視覚ラベル用：任意） */
+body.theme-pop .badge{
+  padding:4px 10px; border-radius:999px; font-size:12px; font-weight:700;
+}
+body.theme-pop .badge.in     { background: rgba(34,197,94,.14);  color:#0F6B35; }
+body.theme-pop .badge.break  { background: rgba(249,115,22,.16); color:#8A3C0B; }
+body.theme-pop .badge.out    { background: rgba(107,114,128,.16); color:#374151; }
+
+/* 既存ボタン体系を壊さず“少しだけ”ポップに寄せる（detailの色指定は維持） */
+body.theme-pop .btn{
+  border-radius: 999px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.06);
+}
+body.theme-pop .btn:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(0,0,0,.08);
+}
+
+/* ガントのキャンバス縁取りをやさしく */
+body.theme-pop .gantt-canvas{
+  border-color: var(--border);
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+}
+
+/* 空状態の背景も少し明るく */
+body.theme-pop .empty-state{
+  background: #FFF7F0;
+  border-color: var(--border);
+}
+
+/* セクション見出しにアクセント（任意：.card-titleに左ライン） */
+body.theme-pop .card-title{
+  position: relative;
+  padding-left: 12px;
+}
+body.theme-pop .card-title::before{
+  content: '';
+  position: absolute; left:0; top: 0.28em;
+  width: 6px; height: 1.2em;
+  border-radius: 3px;
+  background: #30D5C8; /* ミント */
+}
+
+/* メインタイトル全体 */
+.main-title {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center; /* 全体中央寄せ */
+  gap: 12px;               /* 文字とロゴの間隔 */
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0 0 24px;
+  color: var(--text);
+  text-align: center;
+  width: 100%;             /* 中央寄せ維持 */
+}
+
+/* タイトル横のロゴ */
+.title-logo {
+  height: 36px;  /* 小さめに表示 */
+  width: auto;
+}
+
