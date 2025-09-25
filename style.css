@@ -320,7 +320,7 @@ button:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
 /* コンパクト時計 */
 .digital-clock-compact {
   background: linear-gradient(135deg, #1a1a1a, #2d2d2d);
-  color: #4ade80;
+  color: white;
   padding: 24px 32px;
   border-radius: 16px;
   font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
