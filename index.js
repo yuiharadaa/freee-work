@@ -321,7 +321,6 @@ function normalizeRows(rawRows, fallbackEmp = null) {
   });
 }
 
-/* ==================== 勤務区間の構築（既存関数：実データ対応） ==================== */
 function buildClosedIntervalsAndOrder(rows) {
   const byEmp = groupBy(rows, r => String(r.employeeId));
   const result = new Map();
@@ -333,62 +332,86 @@ function buildClosedIntervalsAndOrder(rows) {
 
     const workClosed = [];
     const breakClosed = [];
-    let currentStart = null;
-    let currentPos = null;
-    let breakStart = null;
-    let lastEndTS = null;
+
+    // 現在のシフト状態
+    let currentStart = null;   // 勤務開始時刻
+    let breakStart   = null;   // 休憩開始時刻
+    let pendingWork  = [];     // 退勤で色をつけるまで“保留”の勤務セグメント
+    let lastEndTS    = null;
 
     for (const ev of list) {
       const t = asDate(ev.date, ev.time);
       const [dayS, dayE] = businessDayBounds(t);
 
       switch (ev.punchType) {
-        case '出勤':
+        case '出勤': {
           currentStart = t;
-          currentPos = ev.position || 'レジ';
           breakStart = null;
+          pendingWork = []; // 新しいシフト開始
           break;
-        case '休憩開始':
+        }
+        case '休憩開始': {
           if (currentStart) {
             const seg = clip(currentStart, t, dayS, dayE);
             if (seg) {
-              workClosed.push({
+              pendingWork.push({
                 startMin: minutesFromOpen(seg.start),
-                endMin: minutesFromOpen(seg.end),
-                className: posClassName(currentPos),
+                endMin:   minutesFromOpen(seg.end),
+                className: null // 退勤で色付け
               });
             }
             breakStart = t;
             currentStart = null;
           }
           break;
-        case '休憩終了':
+        }
+        case '休憩終了': {
           if (breakStart) {
             const seg = clip(breakStart, t, dayS, dayE);
             if (seg) {
               breakClosed.push({
                 startMin: minutesFromOpen(seg.start),
-                endMin: minutesFromOpen(seg.end),
+                endMin:   minutesFromOpen(seg.end),
               });
             }
             currentStart = t;
-          }
-          break;
-        case '退勤':
-          if (currentStart) {
-            const seg = clip(currentStart, t, dayS, dayE);
-            if (seg) {
-              workClosed.push({
-                startMin: minutesFromOpen(seg.start),
-                endMin: minutesFromOpen(seg.end),
-                className: posClassName(currentPos),
-              });
-              lastEndTS = t.getTime();
-            }
-            currentStart = null;
             breakStart = null;
           }
           break;
+        }
+        case '退勤': {
+          // 休憩中のまま退勤するケースは基本無い想定だが念のため
+          if (breakStart) {
+            const seg = clip(breakStart, t, dayS, dayE);
+            if (seg) {
+              breakClosed.push({
+                startMin: minutesFromOpen(seg.start),
+                endMin:   minutesFromOpen(seg.end),
+              });
+            }
+            breakStart = null;
+          }
+          if (currentStart) {
+            const seg = clip(currentStart, t, dayS, dayE);
+            if (seg) {
+              pendingWork.push({
+                startMin: minutesFromOpen(seg.start),
+                endMin:   minutesFromOpen(seg.end),
+                className: null // ここも色は後で
+              });
+            }
+          }
+
+          // ★退勤イベントのポジションを全勤務セグメントに適用
+          const cls = posClassName(ev.position || 'レジ');
+          for (const seg of pendingWork) seg.className = cls;
+          workClosed.push(...pendingWork);
+
+          lastEndTS = t.getTime();
+          currentStart = null;
+          pendingWork = [];
+          break;
+        }
       }
     }
 
@@ -402,6 +425,7 @@ function buildClosedIntervalsAndOrder(rows) {
   const labels = order.map(o => o.name);
   return { intervalsByEmp: result, orderLabels: labels };
 }
+
 
 /* ==================== Chart.js 描画 ==================== */
 function renderChartFromIntervals(intervalsByEmp, orderedLabels) {
