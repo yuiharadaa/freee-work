@@ -1,5 +1,5 @@
 /* ================================
-   勤怠管理システム スタイルシート
+   勤怠管理システム スタイルシート（整理版）
    ================================ */
 
 /* ==================== CSS変数定義 ==================== */
@@ -22,13 +22,8 @@
 }
 
 /* ==================== ベーススタイル ==================== */
-* {
-  box-sizing: border-box;
-}
-
-html, body {
-  height: 100%;
-}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
 
 body {
   margin: 0;
@@ -45,32 +40,11 @@ body {
   grid-template-columns: 1fr 2fr;
   gap: 24px;
 }
-
-.employee-list {
-  align-self: start;
-}
-
-.gantt-area {
-  align-self: start;
-  overflow: hidden;
-  max-width: 100%;
-}
+.employee-list { align-self: start; }
+.gantt-area { align-self: start; overflow: hidden; max-width: 100%; }
 
 /* ==================== カード ==================== */
-.card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 16px;
-}
-
-.card-title {
-  margin: 0 0 12px;
-  font-size: 18px;
-  font-weight: 700;
-}
-
+.card,
 .detail-card {
   background: var(--card);
   border: 1px solid var(--border);
@@ -78,81 +52,24 @@ body {
   box-shadow: var(--shadow);
   padding: 16px;
 }
+.card-title { margin: 0 0 12px; font-size: 18px; font-weight: 700; }
 
 /* ==================== リスト ==================== */
-.list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.list li {
-  padding: 6px 0;
-  border-bottom: 1px dashed var(--border);
-}
-
-.list li:last-child {
-  border-bottom: none;
-}
-
-.emp-link {
-  color: #1f2937;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-.emp-link:hover {
-  opacity: .8;
-}
+.list { list-style: none; padding: 0; margin: 0; }
+.list li { padding: 6px 0; border-bottom: 1px dashed var(--border); }
+.list li:last-child { border-bottom: none; }
+.emp-link { color: #1f2937; text-decoration: underline; cursor: pointer; }
+.emp-link:hover { opacity: .8; }
 
 /* ==================== 凡例 ==================== */
-.legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin: 6px 0 10px;
-  color: var(--muted);
-  font-size: 14px;
-}
-
-.legend-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.legend-swatch {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  border-radius: 4px;
-  border: 1px solid var(--border);
-}
-
-.legend-swatch.pos-reji {
-  background: var(--reji);
-  border-color: color-mix(in srgb, var(--reji) 70%, #0000);
-}
-
-.legend-swatch.pos-drink {
-  background: var(--drink);
-  border-color: color-mix(in srgb, var(--drink) 70%, #0000);
-}
-
-.legend-swatch.pos-fry {
-  background: var(--fry);
-  border-color: color-mix(in srgb, var(--fry) 70%, #0000);
-}
-
-.legend-swatch.pos-burger {
-  background: var(--burger);
-  border-color: color-mix(in srgb, var(--burger) 70%, #0000);
-}
-
-.legend-swatch.seg-break {
-  background: var(--break);
-  border-color: color-mix(in srgb, var(--break) 70%, #0000);
-}
+.legend { display: flex; flex-wrap: wrap; gap: 12px; margin: 6px 0 10px; color: var(--muted); font-size: 14px; }
+.legend-item { display: inline-flex; align-items: center; gap: 6px; }
+.legend-swatch { display: inline-block; width: 14px; height: 14px; border-radius: 4px; border: 1px solid var(--border); }
+.legend-swatch.pos-reji   { background: var(--reji);   border-color: color-mix(in srgb, var(--reji) 70%, #0000); }
+.legend-swatch.pos-drink  { background: var(--drink);  border-color: color-mix(in srgb, var(--drink) 70%, #0000); }
+.legend-swatch.pos-fry    { background: var(--fry);    border-color: color-mix(in srgb, var(--fry) 70%, #0000); }
+.legend-swatch.pos-burger { background: var(--burger); border-color: color-mix(in srgb, var(--burger) 70%, #0000); }
+.legend-swatch.seg-break  { background: var(--break);  border-color: color-mix(in srgb, var(--break) 70%, #0000); }
 
 /* ==================== ガントチャート ==================== */
 .gantt-canvas {
@@ -167,7 +84,7 @@ body {
   box-sizing: border-box;
 }
 
-/* ポジション別背景色 */
+/* ポジション別背景色（凡例等で使用） */
 .pos-reji { background: var(--reji); }
 .pos-drink { background: var(--drink); }
 .pos-fry { background: var(--fry); }
@@ -175,47 +92,16 @@ body {
 .seg-break { background: var(--break); }
 
 /* ==================== テーブル ==================== */
-.table {
-  width: 100%;
-  border-collapse: collapse;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  overflow: hidden;
-}
+.table { width: 100%; border-collapse: collapse; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.table th, .table td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: left; }
+.table thead th { background: #f4f6f8; font-weight: 600; }
 
-.table th,
-.table td {
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--border);
-  text-align: left;
-}
+/* ==================== フォーム要素 / ステータス ==================== */
+.row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; }
+.status { margin-top: 8px; color: var(--muted); }
+.action-buttons { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
 
-.table thead th {
-  background: #f4f6f8;
-  font-weight: 600;
-}
-
-/* ==================== フォーム要素 ==================== */
-.row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 8px;
-}
-
-.status {
-  margin-top: 8px;
-  color: var(--muted);
-}
-
-.action-buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: flex-end;
-}
-
-/* ==================== ボタン ==================== */
+/* ==================== ボタン（ベース） ==================== */
 .btn {
   appearance: none;
   border: none;
@@ -227,421 +113,157 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.5px;
   font-size: 14px;
-  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transition: transform .04s ease, box-shadow .15s ease, background-color .2s ease, color .2s ease, opacity .2s ease;
   position: relative;
   overflow: hidden;
 }
+.btn:hover { opacity: 0.95; }
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
 
-.btn:hover {
-  opacity: 0.9;
-}
+/* ===== ここから：detail画面の配色（出勤=青 / 退勤=赤 / 休憩=グレー） ===== */
+.detail-card .action-buttons .btn-primary   { background: #2563eb; color: #fff; }   /* 出勤 */
+.detail-card .action-buttons .btn-danger    { background: #ef4444; color: #fff; }   /* 退勤 */
+.detail-card .action-buttons .btn-secondary { background: #e5e7eb; color: #111827; }/* 休憩 */
+.detail-card .action-buttons .btn-primary:hover,
+.detail-card .action-buttons .btn-danger:hover { filter: brightness(0.97); }
+.detail-card .action-buttons .btn-secondary:hover { background: #d1d5db; }
 
-.btn:disabled {
-  opacity: .5;
-  cursor: not-allowed;
-}
+/* （必要なら全ページに適用したい場合は .detail-card .action-buttons を外して .btn-*** だけに） */
 
-/* ボタンカラー - 統一されたモダンデザイン */
-.btn-shukkin {
-  background: linear-gradient(135deg, #2563eb, #1e40af);
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
-}
-
-.btn-taikin {
-  background: linear-gradient(135deg, #dc2626, #b91c1c);
-  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.25);
-}
-
-.btn-kyuukei-start {
-  background: linear-gradient(135deg, #f59e0b, #d97706);
-  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25);
-}
-
-.btn-kyuukei-end {
-  background: linear-gradient(135deg, #22c55e, #16a34a);
-  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.25);
-}
-
-.btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-}
-
-.btn:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-}
-
-/* ボタンローディング状態 */
-.btn.loading {
-  position: relative;
-  color: transparent;
-  pointer-events: none;
-}
-
+/* ボタン：ローディング状態 */
+.btn.loading { color: transparent; pointer-events: none; }
 .btn.loading::after {
   content: '';
   position: absolute;
-  width: 16px;
-  height: 16px;
-  top: 50%;
-  left: 50%;
-  margin-left: -8px;
-  margin-top: -8px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
+  width: 16px; height: 16px;
+  top: 50%; left: 50%;
+  margin-left: -8px; margin-top: -8px;
+  border: 2px solid rgba(255,255,255,.3);
   border-top-color: #fff;
   border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+  animation: spin .8s linear infinite;
 }
 
-/* ==================== ローディング ==================== */
-/* グローバルオーバーレイ */
+/* 任意：個別のリトライボタン（既存利用がある場合用） */
+.btn-retry { background: #6b7280; font-size: 14px; padding: 6px 12px; }
+
+/* ==================== ローディング（共通） ==================== */
 .loading-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.3);
+  display: flex; align-items: center; justify-content: center;
   z-index: 9999;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.3s ease;
+  opacity: 0; pointer-events: none; transition: opacity .3s ease;
 }
-
-.loading-overlay.active {
-  opacity: 1;
-  pointer-events: auto;
-}
-
+.loading-overlay.active { opacity: 1; pointer-events: auto; }
 .loading-spinner {
-  width: 50px;
-  height: 50px;
-  border: 4px solid rgba(255, 255, 255, 0.3);
+  width: 50px; height: 50px;
+  border: 4px solid rgba(255,255,255,.3);
   border-top-color: #fff;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
+  border-radius: 50%; animation: spin 1s linear infinite;
 }
-
-/* インラインローダー */
 .inline-loader {
-  display: inline-block;
-  padding: 8px 16px;
-  background: rgba(15, 23, 42, 0.05);
-  border-radius: 8px;
-  color: var(--muted);
-  font-size: 14px;
-  animation: pulse 1.5s ease-in-out infinite;
+  display: inline-block; padding: 8px 16px;
+  background: rgba(15,23,42,.05); border-radius: 8px;
+  color: var(--muted); font-size: 14px; animation: pulse 1.5s ease-in-out infinite;
 }
-
 .inline-loader::after {
-  content: '...';
-  display: inline-block;
-  width: 20px;
-  text-align: left;
+  content: '...'; display: inline-block; width: 20px; text-align: left;
   animation: dots 1.5s steps(4, end) infinite;
 }
-
-/* チャートローディング */
 .chart-loading-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(255, 255, 255, 0.9);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 10;
-  border-radius: var(--radius);
-}
-
-/* ==================== アニメーション ==================== */
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.6;
-  }
-}
-
-@keyframes dots {
-  0%, 20% {
-    content: '.';
-  }
-  40% {
-    content: '..';
-  }
-  60%, 100% {
-    content: '...';
-  }
-}
-
-@keyframes slideIn {
-  from {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-@keyframes slideOut {
-  from {
-    transform: translateX(0);
-    opacity: 1;
-  }
-  to {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-}
-
-@keyframes fadeInUp {
-  from {
-    transform: translateY(20px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-@keyframes fadeOutDown {
-  from {
-    transform: translateY(0);
-    opacity: 1;
-  }
-  to {
-    transform: translateY(20px);
-    opacity: 0;
-  }
-}
-
-/* ==================== アクセシビリティ ==================== */
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-
-/* フォーカス表示の改善 */
-*:focus {
-  outline: 2px solid #2563eb;
-  outline-offset: 2px;
-}
-
-button:focus-visible {
-  outline: 3px solid #2563eb;
-  outline-offset: 2px;
-}
-
-/* 高コントラストモード対応 */
-@media (prefers-contrast: high) {
-  .btn {
-    border: 2px solid currentColor;
-  }
-
-  .card {
-    border-width: 2px;
-  }
-}
-
-/* モーション設定を尊重 */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-}
-
-/* リトライボタン */
-.btn-retry {
-  background: #6b7280;
-  font-size: 14px;
-  padding: 6px 12px;
+  position: absolute; inset: 0;
+  background: rgba(255,255,255,.9);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 10; border-radius: var(--radius);
 }
 
 /* ==================== 空状態表示 ==================== */
-#ganttContainer {
-  position: relative;
-  min-height: 250px;
-}
-
+#ganttContainer { position: relative; min-height: 250px; }
 .empty-state {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background: #fafbfc;
-  border: 2px dashed var(--border);
-  border-radius: var(--radius);
-  text-align: center;
-  padding: 40px 20px;
-  min-height: 250px;
-  box-sizing: border-box;
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: #fafbfc; border: 2px dashed var(--border); border-radius: var(--radius);
+  text-align: center; padding: 40px 20px; min-height: 250px; box-sizing: border-box;
 }
-
-.empty-icon {
-  color: var(--muted);
-  margin-bottom: 20px;
-  opacity: 0.5;
-}
-
-.empty-title {
-  margin: 0 0 8px;
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.empty-description {
-  margin: 0;
-  color: var(--muted);
-  font-size: 14px;
-  max-width: 300px;
-}
+.empty-icon { color: var(--muted); margin-bottom: 20px; opacity: .5; }
+.empty-title { margin: 0 0 8px; font-size: 20px; font-weight: 600; color: var(--text); }
+.empty-description { margin: 0; color: var(--muted); font-size: 14px; max-width: 300px; }
 
 /* ==================== デジタル時計 ==================== */
-.digital-clock-container {
-  display: flex;
-  justify-content: center;
-  margin: 20px 0 24px;
-}
-
+.digital-clock-container { display: flex; justify-content: center; margin: 20px 0 24px; }
 .digital-clock {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 20px 32px;
-  text-align: center;
-  box-shadow: var(--shadow);
-  color: var(--text);
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 20px 32px; text-align: center; box-shadow: var(--shadow); color: var(--text);
   font-family: 'Courier New', monospace;
 }
-
-.digital-clock .time {
-  display: block;
-  font-size: 2.5rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  margin-bottom: 8px;
-  color: var(--text);
-}
-
-.digital-clock .date {
-  display: block;
-  font-size: 1rem;
-  font-weight: 400;
-  letter-spacing: 0.05em;
-  color: var(--muted);
-}
+.digital-clock .time { display: block; font-size: 2.5rem; font-weight: 700; letter-spacing: .1em; margin-bottom: 8px; color: var(--text); }
+.digital-clock .date { display: block; font-size: 1rem; font-weight: 400; letter-spacing: .05em; color: var(--muted); }
 
 /* 大型デジタル時計 */
-.digital-clock-container-large {
-  display: flex;
-  justify-content: center;
-  margin: 30px 0;
-}
-
+.digital-clock-container-large { display: flex; justify-content: center; margin: 30px 0; }
 .digital-clock-large {
   background: linear-gradient(135deg, #1a1a1a, #2d2d2d);
-  color: #4ade80;
-  padding: 40px 60px;
-  border-radius: 20px;
-  font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255,255,255,0.1);
-  text-align: center;
-  min-width: 500px;
-  position: relative;
-  overflow: hidden;
+  color: #4ade80; padding: 40px 60px; border-radius: 20px;
+  font-family: 'SF Mono','Monaco','Courier New', monospace;
+  box-shadow: 0 10px 40px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.1);
+  text-align: center; min-width: 500px; position: relative; overflow: hidden;
 }
-
 .digital-clock-large::before {
-  content: '';
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: radial-gradient(circle, rgba(74, 222, 128, 0.1) 0%, transparent 70%);
+  content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+  background: radial-gradient(circle, rgba(74,222,128,.1) 0%, transparent 70%);
   animation: clockPulse 4s ease-in-out infinite;
 }
-
-@keyframes clockPulse {
-  0%, 100% { transform: scale(1); opacity: 0.5; }
-  50% { transform: scale(1.05); opacity: 0.3; }
-}
-
 .time-large {
-  display: block;
-  font-size: 5.5rem;
-  font-weight: 700;
-  letter-spacing: 6px;
-  text-shadow:
-    0 0 30px rgba(74, 222, 128, 0.8),
-    0 0 60px rgba(74, 222, 128, 0.4),
-    0 0 90px rgba(74, 222, 128, 0.2);
-  margin-bottom: 15px;
-  position: relative;
-  z-index: 1;
-  font-variant-numeric: tabular-nums;
+  display: block; font-size: 5.5rem; font-weight: 700; letter-spacing: 6px;
+  text-shadow: 0 0 30px rgba(74,222,128,.8), 0 0 60px rgba(74,222,128,.4), 0 0 90px rgba(74,222,128,.2);
+  margin-bottom: 15px; position: relative; z-index: 1; font-variant-numeric: tabular-nums;
 }
-
 .date-large {
-  display: block;
-  font-size: 1.8rem;
-  opacity: 0.9;
-  letter-spacing: 3px;
-  text-shadow: 0 0 15px rgba(74, 222, 128, 0.4);
-  position: relative;
-  z-index: 1;
-  font-weight: 300;
+  display: block; font-size: 1.8rem; opacity: .9; letter-spacing: 3px;
+  text-shadow: 0 0 15px rgba(74,222,128,.4); position: relative; z-index: 1; font-weight: 300;
 }
 
+/* 戻るリンク */
 .back-link {
-  display: inline-block;
-  margin-bottom: 16px;
-  padding: 8px 16px;          /* 四角の余白 */
-  border: 2px solid #333;     /* 枠線をつける */
-  border-radius: 8px;         /* 角を丸めたい場合 */
-  background-color: #f0f0f0;  /* 背景色をつける */
-  color: #333;                /* 文字色 */
-  text-decoration: none;      /* 下線を消す */
-  font-weight: bold;          /* 太字にする */
-  transition: 0.2s ease;      /* ホバー時の動きを滑らかに */
+  display: inline-block; margin-bottom: 16px; padding: 8px 16px;
+  border: 2px solid #333; border-radius: 8px; background-color: #f0f0f0;
+  color: #333; text-decoration: none; font-weight: bold; transition: .2s ease;
+}
+.back-link:hover { background-color: #333; color: #fff; }
+
+/* ==================== ヘルプテキスト（position用） ==================== */
+.help-text { margin-top: 6px; font-size: 12px; color: #6b7280; }
+
+/* ==================== アニメーション ==================== */
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.6;} }
+@keyframes dots { 0%,20%{content:'.';} 40%{content:'..';} 60%,100%{content:'...';} }
+@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
+@keyframes fadeInUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes fadeOutDown { from { transform: translateY(0); opacity: 1; } to { transform: translateY(20px); opacity: 0; } }
+@keyframes clockPulse { 0%,100%{ transform: scale(1); opacity:.5; } 50%{ transform: scale(1.05); opacity:.3; } }
+
+/* ==================== アクセシビリティ ==================== */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+/* フォーカス表示 */
+*:focus { outline: 2px solid #2563eb; outline-offset: 2px; }
+button:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
+
+/* 高コントラスト */
+@media (prefers-contrast: high) {
+  .btn { border: 2px solid currentColor; }
+  .card, .detail-card { border-width: 2px; }
 }
 
-.back-link:hover {
-  background-color: #333;     /* ホバー時に反転 */
-  color: #fff;
+/* モーション削減 */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
