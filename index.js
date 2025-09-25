@@ -1,12 +1,9 @@
-// index.js v50 - 勤怠管理システム（退勤トリガで実データを描画）
-
+// index.js v51 - 実データでガント描画 / 退勤だけポジション確定 / 退勤時に再描画
 /* ==================== 定数定義 ==================== */
 const OPEN_HOUR = 9;
 const CLOSE_HOUR = 22;
 const ROW_HEIGHT = 35;
 const BASE_HEIGHT = 40;
-const EMPTY_HEIGHT_PX = 80;
-const MAX_HEIGHT_PX = 800;
 
 const POS_ORDER = ['レジ', 'ドリンカー', 'フライヤー', 'バーガー', '休憩'];
 const POS_COLOR = {
@@ -20,7 +17,6 @@ const POS_COLOR = {
 const BC_CHANNEL_NAME = 'punch';
 const BC_DEBOUNCE_MS = 300;
 const BC_THROTTLE_MS = 2000;
-// const USE_MOCK = false; // ※デバッグ時だけ true にする（今回デフォは実データ）
 
 /* ==================== グローバル状態 ==================== */
 let currentDay = ymd(new Date());
@@ -50,9 +46,8 @@ function showErrorMessage(message) {
   container.className = 'error-message';
   container.textContent = message;
   container.style.cssText = `
-    position: fixed; top: 20px; right: 20px;
-    background: #ef4444; color: white; padding: 12px 20px;
-    border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    position: fixed; top: 20px; right: 20px; background: #ef4444; color: white;
+    padding: 12px 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     z-index: 10000; animation: slideIn 0.3s ease;
   `;
   document.body.appendChild(container);
@@ -66,9 +61,8 @@ function showSuccessMessage(message) {
   container.className = 'success-message';
   container.textContent = message;
   container.style.cssText = `
-    position: fixed; top: 20px; right: 20px;
-    background: #22c55e; color: white; padding: 12px 20px;
-    border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    position: fixed; top: 20px; right: 20px; background: #22c55e; color: white;
+    padding: 12px 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     z-index: 10000; animation: slideIn 0.3s ease;
   `;
   document.body.appendChild(container);
@@ -80,10 +74,11 @@ function showSuccessMessage(message) {
 
 /* ==================== 初期化処理 ==================== */
 window.addEventListener('DOMContentLoaded', async () => {
+  // 1. ガント初期化＆ローディング
   initGanttCanvas();
   showGanttLoading();
 
-  // 直近5分のキャッシュがあれば即描画
+  // 2. キャッシュ復元（5分以内）
   const cached = loadFromCache();
   if (cached && cached.intervals.size > 0) {
     renderChartFromIntervals(cached.intervals, cached.labels);
@@ -92,7 +87,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     renderChartFromIntervals(new Map(), []); // 空状態
   }
 
-  // 従業員一覧とガントの初回取得
+  // 3. 従業員一覧とガント更新を並列
   const [employeeResult] = await Promise.allSettled([
     renderEmployeeList(),
     requestRefresh()
@@ -101,6 +96,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     console.error('従業員一覧の取得に失敗:', employeeResult.reason);
   }
 
+  // 4. BC/日付跨ぎ/ネットワーク/モバイルメニュー
   setupBroadcastChannel();
   setMidnightTimer();
   setupNetworkHandlers();
@@ -115,7 +111,7 @@ function initGanttCanvas() {
   }
 }
 
-/* ==================== 従業員一覧表示 ==================== */
+/* ==================== 従業員一覧 ==================== */
 async function renderEmployeeList() {
   const ul = document.getElementById('employeeList');
   const tpl = document.getElementById('tpl-employee-item');
@@ -132,10 +128,10 @@ async function renderEmployeeList() {
       const id = coerceId(emp);
       const node = tpl.content.cloneNode(true);
       const a = node.querySelector('.emp-link');
-
-      // IDのみを表示（クリックで認証モーダル）
+      // IDのみ表示
       a.textContent = API.escapeHtml(String(id ?? ''));
       a.href = '#';
+      // クリックで本人確認→detailへ
       a.addEventListener('click', (e) => {
         e.preventDefault();
         authenticateEmployee(id, emp?.name ?? '');
@@ -151,28 +147,26 @@ async function renderEmployeeList() {
   }
 }
 
-// 本人確認モーダル
+// 従業員認証モーダル
 function authenticateEmployee(empId, correctName) {
   const modal = document.createElement('div');
   modal.style.cssText = `
-    position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    position: fixed; inset: 0; background: rgba(0,0,0,.5);
     display: flex; align-items: center; justify-content: center; z-index: 10000;
   `;
-
   const dialog = document.createElement('div');
   dialog.style.cssText = `
-    background: white; padding: 30px; border-radius: 12px;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.2); max-width: 400px; width: 90%;
+    background: white; padding: 30px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,.2);
+    max-width: 400px; width: 90%;
   `;
   dialog.innerHTML = `
-    <h3 style="margin:0 0 20px; font-size: 1.2rem; color:#1a1a1a;">本人確認</h3>
+    <h3 style="margin:0 0 20px; font-size:1.2rem; color:#1a1a1a;">本人確認</h3>
     <p style="margin:0 0 15px; color:#666;">ID: <strong>${empId}</strong></p>
     <p style="margin:0 0 20px; color:#666;">フルネームを入力してください：</p>
     <input type="text" id="nameInput" placeholder="フルネーム" style="
-      width:100%; padding:12px; border:2px solid #e5e7eb; border-radius:8px; font-size:1rem; margin-bottom:8px; box-sizing:border-box;"/>
+      width:100%; padding:12px; border:2px solid #e5e7eb; border-radius:8px; font-size:1rem; margin-bottom:8px; box-sizing:border-box;" />
     <div id="errorMessage" style="
-      color:#ef4444; font-size:14px; margin-bottom:12px; display:none;
-      padding:8px 12px; background:#fef2f2; border-radius:6px; border:1px solid #fecaca;">
+      color:#ef4444; font-size:14px; margin-bottom:12px; display:none; padding:8px 12px; background:#fef2f2; border-radius:6px; border:1px solid #fecaca;">
       名前が正しくありません
     </div>
     <div style="display:flex; gap:10px; justify-content:flex-end;">
@@ -187,8 +181,8 @@ function authenticateEmployee(empId, correctName) {
   const confirmBtn = dialog.querySelector('#confirmBtn');
   const cancelBtn = dialog.querySelector('#cancelBtn');
   const errorMessage = dialog.querySelector('#errorMessage');
-  input.focus();
 
+  input.focus();
   input.addEventListener('input', () => {
     if (errorMessage.style.display === 'block') {
       errorMessage.style.display = 'none';
@@ -220,16 +214,13 @@ function authenticateEmployee(empId, correctName) {
   modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
 }
 
-/* ==================== ガントチャート更新（退勤トリガ対応の実データ版） ==================== */
+/* ==================== ガントチャート更新 ==================== */
 let refreshDebounceTimer = null;
 
 async function requestRefresh() {
   clearTimeout(refreshDebounceTimer);
   refreshDebounceTimer = setTimeout(async () => {
-    if (refreshing) {
-      queued = true;
-      return;
-    }
+    if (refreshing) { queued = true; return; }
     refreshing = true;
     try {
       await refreshGantt();
@@ -240,10 +231,7 @@ async function requestRefresh() {
       hideGanttLoading();
     } finally {
       refreshing = false;
-      if (queued) {
-        queued = false;
-        requestRefresh();
-      }
+      if (queued) { queued = false; requestRefresh(); }
     }
   }, 100);
 }
@@ -251,78 +239,54 @@ async function requestRefresh() {
 async function refreshGantt() {
   const canvas = document.getElementById('ganttCanvas');
   if (!canvas) return;
-
   showGanttLoading();
+
   try {
-    // 実データ取得（当日分）
-    const rows = await fetchTodayRowsAllEmployees();
+    // 1) 従業員一覧
+    const employees = await API.fetchEmployees();
+    const todayISO = ymd(new Date());
 
-    // 打刻行→閉区間へ整形
-    const { intervalsByEmp, orderLabels } = buildClosedIntervalsAndOrder(rows);
+    // 2) 各従業員の「今日」だけ履歴を取得
+    const tasks = (employees || []).map(emp => API.fetchHistory({
+      employeeId: emp.id,
+      from: new Date(todayISO),
+      to:   new Date(todayISO)
+    }).then(rows => ({ emp, rows: Array.isArray(rows) ? rows : [] }))
+      .catch(() => ({ emp, rows: [] }))
+    );
 
-    // キャッシュ & 描画
+    const results = await Promise.all(tasks);
+
+    // 3) 全行を集約（employeeName を保証）
+    const allRows = [];
+    for (const { emp, rows } of results) {
+      for (const r of rows) {
+        allRows.push({
+          ...r,
+          employeeId: emp.id,
+          employeeName: emp.name
+        });
+      }
+    }
+
+    // 4) 今日の閉区間を作る（退勤のポジションで色確定）
+    const { intervalsByEmp, orderLabels } = buildClosedIntervalsAndOrder(allRows);
+
+    // 5) キャッシュ保存→描画
     saveToCache(intervalsByEmp, orderLabels);
+    hideGanttLoading();
     renderChartFromIntervals(intervalsByEmp, orderLabels);
   } catch (error) {
     console.error('[GANTT] エラー:', error);
+    hideGanttLoading();
     showErrorMessage('データの取得に失敗しました');
     renderChartFromIntervals(new Map(), []);
-  } finally {
-    hideGanttLoading();
   }
 }
 
-/* === 当日分を全員ぶん集約 === */
-async function fetchTodayRowsAllEmployees() {
-  const today = new Date();
-  const from = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0);
-  const to   = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
-
-  // 従業員一覧
-  const employees = normalizeEmployees(await API.fetchEmployees());
-
-  // 各従業員の当日履歴を取得（並列）
-  const results = await Promise.allSettled(
-    employees.map(emp => API.fetchHistory({
-      employeeId: coerceId(emp),
-      from, to
-    }))
-  );
-
-  // フラット化＋正規化
-  const allRows = [];
-  results.forEach((res, idx) => {
-    const emp = employees[idx];
-    if (res.status === 'fulfilled') {
-      const normalized = normalizeRows(res.value, emp);
-      allRows.push(...normalized);
-    } else {
-      console.warn('[HISTORY] failed for', emp, res.reason);
-    }
-  });
-
-  return allRows;
-}
-
-/* === API返却の差異を吸収して既存整形関数が読める形に === */
-function normalizeRows(rawRows, fallbackEmp = null) {
-  return (rawRows ?? []).map(r => {
-    const employeeId = String(
-      r.employeeId ?? r.empId ?? r.id ?? fallbackEmp?.id ?? fallbackEmp?.employeeId ?? ''
-    ).trim();
-    const employeeName = String(
-      r.employeeName ?? r.name ?? fallbackEmp?.name ?? ''
-    ).trim();
-    const punchType = String(r.punchType ?? r.type ?? '').trim(); // 出勤/休憩開始/休憩終了/退勤
-    const position = String(r.position ?? r.pos ?? 'レジ').trim();
-    const date = normalizeDateStr(r.date ?? r.dt ?? r.yyyymmdd ?? '');
-    const time = String(r.time ?? r.hhmm ?? r.hhmmss ?? '00:00:00').trim();
-    return { employeeId, employeeName, punchType, position, date, time };
-  });
-}
-
+/* ==================== 実データ→区間構築（退勤で色決定） ==================== */
 function buildClosedIntervalsAndOrder(rows) {
-  const byEmp = groupBy(rows, r => String(r.employeeId));
+  const byEmp = groupBy(rows || [], r => String(r.employeeId));
   const result = new Map();
   const order = [];
 
@@ -333,10 +297,9 @@ function buildClosedIntervalsAndOrder(rows) {
     const workClosed = [];
     const breakClosed = [];
 
-    // 現在のシフト状態
-    let currentStart = null;   // 勤務開始時刻
-    let breakStart   = null;   // 休憩開始時刻
-    let pendingWork  = [];     // 退勤で色をつけるまで“保留”の勤務セグメント
+    let currentStart = null;   // 勤務開始
+    let breakStart   = null;   // 休憩開始
+    let pendingWork  = [];     // 退勤まで色未確定で貯める
     let lastEndTS    = null;
 
     for (const ev of list) {
@@ -347,7 +310,7 @@ function buildClosedIntervalsAndOrder(rows) {
         case '出勤': {
           currentStart = t;
           breakStart = null;
-          pendingWork = []; // 新しいシフト開始
+          pendingWork = [];
           break;
         }
         case '休憩開始': {
@@ -357,7 +320,7 @@ function buildClosedIntervalsAndOrder(rows) {
               pendingWork.push({
                 startMin: minutesFromOpen(seg.start),
                 endMin:   minutesFromOpen(seg.end),
-                className: null // 退勤で色付け
+                className: null // 退勤で決定
               });
             }
             breakStart = t;
@@ -371,7 +334,7 @@ function buildClosedIntervalsAndOrder(rows) {
             if (seg) {
               breakClosed.push({
                 startMin: minutesFromOpen(seg.start),
-                endMin:   minutesFromOpen(seg.end),
+                endMin:   minutesFromOpen(seg.end)
               });
             }
             currentStart = t;
@@ -380,36 +343,37 @@ function buildClosedIntervalsAndOrder(rows) {
           break;
         }
         case '退勤': {
-          // 休憩中のまま退勤するケースは基本無い想定だが念のため
+          // 休憩中で退勤 → 休憩閉区間
           if (breakStart) {
             const seg = clip(breakStart, t, dayS, dayE);
             if (seg) {
               breakClosed.push({
                 startMin: minutesFromOpen(seg.start),
-                endMin:   minutesFromOpen(seg.end),
+                endMin:   minutesFromOpen(seg.end)
               });
             }
             breakStart = null;
           }
+          // 勤務中 → 最終勤務セグメントをpendingに追加
           if (currentStart) {
             const seg = clip(currentStart, t, dayS, dayE);
             if (seg) {
               pendingWork.push({
                 startMin: minutesFromOpen(seg.start),
                 endMin:   minutesFromOpen(seg.end),
-                className: null // ここも色は後で
+                className: null
               });
             }
           }
 
-          // ★退勤イベントのポジションを全勤務セグメントに適用
+          // ★退勤の position を全勤務セグメントに適用
           const cls = posClassName(ev.position || 'レジ');
           for (const seg of pendingWork) seg.className = cls;
           workClosed.push(...pendingWork);
 
-          lastEndTS = t.getTime();
+          lastEndTS    = t.getTime();
           currentStart = null;
-          pendingWork = [];
+          pendingWork  = [];
           break;
         }
       }
@@ -425,7 +389,6 @@ function buildClosedIntervalsAndOrder(rows) {
   const labels = order.map(o => o.name);
   return { intervalsByEmp: result, orderLabels: labels };
 }
-
 
 /* ==================== Chart.js 描画 ==================== */
 function renderChartFromIntervals(intervalsByEmp, orderedLabels) {
@@ -449,18 +412,15 @@ function renderChartFromIntervals(intervalsByEmp, orderedLabels) {
   if (totalBars === 0 || names.length === 0) {
     destroyChart();
     canvas.style.display = 'none';
-    if (emptyMsg) {
-      emptyMsg.style.display = 'flex';
-      hideGanttLoading();
-    }
+    if (emptyMsg) { emptyMsg.style.display = 'flex'; hideGanttLoading(); }
     lastSig = 'EMPTY';
     return;
   }
 
-  // データあり：canvas表示
+  // データがある → canvas表示
   canvas.style.display = 'block';
 
-  // キャンバスサイズ設定
+  // サイズ
   const canvasHeight = Math.min(BASE_HEIGHT + names.length * ROW_HEIGHT, 600);
   canvas.style.height = `${canvasHeight}px`;
   canvas.style.maxHeight = `${canvasHeight}px`;
@@ -477,16 +437,10 @@ function renderChartFromIntervals(intervalsByEmp, orderedLabels) {
   // 再作成
   destroyChart();
   createChart(canvas, names, datasets, canvasHeight);
-
   if (emptyMsg) emptyMsg.style.display = 'none';
 }
 
-function destroyChart() {
-  if (ganttChart) {
-    ganttChart.destroy();
-    ganttChart = null;
-  }
-}
+function destroyChart() { if (ganttChart) { ganttChart.destroy(); ganttChart = null; } }
 
 function createChart(canvas, names, datasets, canvasHeight) {
   const { min, max } = dayBoundsISO();
@@ -523,7 +477,7 @@ function createChart(canvas, names, datasets, canvasHeight) {
             label(ctx) {
               const [s, e] = ctx.raw.x;
               const start = luxon.DateTime.fromISO(s).toFormat('HH:mm');
-              const end = luxon.DateTime.fromISO(e).toFormat('HH:mm');
+              const end   = luxon.DateTime.fromISO(e).toFormat('HH:mm');
               return `${ctx.dataset.label}: ${start} - ${end}`;
             }
           }
@@ -547,7 +501,6 @@ function createChart(canvas, names, datasets, canvasHeight) {
 
 function toChartDatasets(intervalsByEmp) {
   const byPos = new Map(POS_ORDER.map(p => [p, []]));
-
   intervalsByEmp.forEach(info => {
     const open = todayOpenMillis();
 
@@ -613,7 +566,7 @@ function setMidnightTimer() {
   setTimeout(() => {
     currentDay = ymd(new Date());
     lastSig = 'EMPTY';
-    renderChartFromIntervals(new Map(), []); // 日付切替直後は空表示
+    renderChartFromIntervals(new Map(), []); // 新しい日なので空表示
     setMidnightTimer();
   }, next - now);
 }
@@ -628,19 +581,19 @@ function normalizeEmployees(raw) {
 }
 function coerceId(emp) {
   if (!emp) return null;
-  const cand = emp.id ?? emp.employeeId ?? emp.ID ?? emp.Id;
+  const cand = emp.id ?? emp.employeeId;
   if (cand === null || cand === undefined) return null;
   const s = String(cand).trim();
   return s.length > 0 ? s : null;
 }
 
-// ポジション変換
+// ポジション→クラス名
 function posClassName(position) {
   if (!position) return 'pos-reji';
   const posMap = {
     'レジ': 'pos-reji',
-    'ドリンク': 'pos-drink',
-    'ドリンカー': 'pos-drink',
+    'ドリンク': 'pos-drink',     // 旧表記互換
+    'ドリンカー': 'pos-drink',   // 現行UI
     'フライヤー': 'pos-fry',
     'バーガー': 'pos-burger',
     'reji': 'pos-reji',
@@ -702,19 +655,14 @@ function groupBy(arr, keyFn) {
 }
 
 // 日付フォーマット
-function ts(r) {
-  return asDate(r.date, r.time).getTime();
-}
-function normalizeDateStr(s) {
-  return String(s || '').trim().replace(/\./g, '-').replace(/\//g, '-');
-}
+function ts(r) { return asDate(r.date, r.time).getTime(); }
+function normalizeDateStr(s) { return String(s || '').trim().replace(/\./g, '-').replace(/\//g, '-'); }
 function asDate(dateStr, timeStr) {
   const d = normalizeDateStr(dateStr);
   let t = String(timeStr || '00:00:00').trim();
   const parts = t.split(':').map(p => p.padStart(2, '0'));
   while (parts.length < 3) parts.push('00');
   t = parts.slice(0, 3).join(':');
-  // ローカル時刻での Date 化（GAS 側と整合していればOK）
   return new Date(`${d}T${t}`);
 }
 function ymd(d) {
@@ -724,19 +672,19 @@ function ymd(d) {
   return `${y}-${m}-${day}`;
 }
 
-// シグネチャ生成
+// シグネチャ
 function makeSignature(names, datasets) {
   const dsSig = datasets.map(ds => {
     const n = ds.data?.length || 0;
     if (!n) return `${ds.label}:0`;
     const first = ds.data[0]?.x?.[0] ?? '';
-    const last = ds.data[n - 1]?.x?.[1] ?? '';
+    const last  = ds.data[n - 1]?.x?.[1] ?? '';
     return `${ds.label}:${n}:${first}-${last}`;
   });
   return JSON.stringify({ names, ds: dsSig });
 }
 
-/* ==================== キャッシュ管理 ==================== */
+/* ==================== キャッシュ ==================== */
 function saveToCache(intervalsByEmp, orderLabels) {
   try {
     const cacheData = {
@@ -754,16 +702,9 @@ function loadFromCache() {
   try {
     const cached = localStorage.getItem('gantt_cache');
     if (!cached) return null;
-
     const data = JSON.parse(cached);
-    if (data.day !== currentDay) {
-      localStorage.removeItem('gantt_cache');
-      return null;
-    }
-    if (Date.now() - data.timestamp > 5 * 60 * 1000) {
-      localStorage.removeItem('gantt_cache');
-      return null;
-    }
+    if (data.day !== currentDay) { localStorage.removeItem('gantt_cache'); return null; }
+    if (Date.now() - data.timestamp > 5 * 60 * 1000) { localStorage.removeItem('gantt_cache'); return null; }
     return { intervals: new Map(data.intervals), labels: data.labels };
   } catch (e) {
     console.warn('キャッシュ読み込み失敗:', e);
@@ -773,16 +714,11 @@ function loadFromCache() {
 
 /* ==================== ネットワーク監視 ==================== */
 function setupNetworkHandlers() {
-  window.addEventListener('online', () => {
-    showSuccessMessage('オンラインに復帰しました');
-    requestRefresh();
-  });
-  window.addEventListener('offline', () => {
-    showErrorMessage('オフラインです - キャッシュデータを表示中');
-  });
+  window.addEventListener('online',  () => { showSuccessMessage('オンラインに復帰しました'); requestRefresh(); });
+  window.addEventListener('offline', () => { showErrorMessage('オフラインです - キャッシュデータを表示中'); });
 }
 
-/* ==================== モバイルメニュー制御 ==================== */
+/* ==================== モバイルメニュー ==================== */
 function setupMobileMenu() {
   const menuToggle = document.getElementById('menuToggle');
   const ganttArea = document.querySelector('.gantt-area');
@@ -792,31 +728,17 @@ function setupMobileMenu() {
   menuToggle.addEventListener('click', () => {
     const isOpen = ganttArea.classList.contains('show');
     if (isOpen) {
-      ganttArea.classList.remove('show');
-      mobileOverlay.classList.remove('show');
-      menuToggle.classList.remove('active');
-      menuToggle.setAttribute('aria-expanded', 'false');
+      ganttArea.classList.remove('show'); mobileOverlay.classList.remove('show'); menuToggle.classList.remove('active'); menuToggle.setAttribute('aria-expanded', 'false');
     } else {
-      ganttArea.classList.add('show');
-      mobileOverlay.classList.add('show');
-      menuToggle.classList.add('active');
-      menuToggle.setAttribute('aria-expanded', 'true');
+      ganttArea.classList.add('show'); mobileOverlay.classList.add('show'); menuToggle.classList.add('active'); menuToggle.setAttribute('aria-expanded', 'true');
     }
   });
-
   mobileOverlay.addEventListener('click', () => {
-    ganttArea.classList.remove('show');
-    mobileOverlay.classList.remove('show');
-    menuToggle.classList.remove('active');
-    menuToggle.setAttribute('aria-expanded', 'false');
+    ganttArea.classList.remove('show'); mobileOverlay.classList.remove('show'); menuToggle.classList.remove('active'); menuToggle.setAttribute('aria-expanded', 'false');
   });
-
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && ganttArea.classList.contains('show')) {
-      ganttArea.classList.remove('show');
-      mobileOverlay.classList.remove('show');
-      menuToggle.classList.remove('active');
-      menuToggle.setAttribute('aria-expanded', 'false');
+      ganttArea.classList.remove('show'); mobileOverlay.classList.remove('show'); menuToggle.classList.remove('active'); menuToggle.setAttribute('aria-expanded', 'false');
     }
   });
 }
