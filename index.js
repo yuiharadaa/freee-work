@@ -1,5 +1,3 @@
-// index.js v51 - 実データでガント描画 / 退勤だけポジション確定 / 退勤時に再描画
-/* ==================== 定数定義 ==================== */
 const OPEN_HOUR = 9;
 const CLOSE_HOUR = 22;
 const ROW_HEIGHT = 35;
@@ -28,7 +26,7 @@ let bc = null;
 let bcTimer = null;
 let lastBC = 0;
 
-/* ==================== ローディング制御 & フィードバック ==================== */
+
 function showGanttLoading() {
   const loadingEl = document.getElementById('ganttLoading');
   if (loadingEl) loadingEl.style.display = 'flex';
@@ -74,11 +72,11 @@ function showSuccessMessage(message) {
 
 /* ==================== 初期化処理 ==================== */
 window.addEventListener('DOMContentLoaded', async () => {
-  // 1. ガント初期化＆ローディング
+  
   initGanttCanvas();
   showGanttLoading();
 
-  // 2. キャッシュ復元（5分以内）
+  
   const cached = loadFromCache();
   if (cached && cached.intervals.size > 0) {
     renderChartFromIntervals(cached.intervals, cached.labels);
@@ -87,7 +85,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     renderChartFromIntervals(new Map(), []); // 空状態
   }
 
-  // 3. 従業員一覧とガント更新を並列
+  
   const [employeeResult] = await Promise.allSettled([
     renderEmployeeList(),
     requestRefresh()
@@ -96,7 +94,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     console.error('従業員一覧の取得に失敗:', employeeResult.reason);
   }
 
-  // 4. BC/日付跨ぎ/ネットワーク/モバイルメニュー
+  
   setupBroadcastChannel();
   setMidnightTimer();
   setupNetworkHandlers();
@@ -111,7 +109,7 @@ function initGanttCanvas() {
   }
 }
 
-/* ==================== 従業員一覧 ==================== */
+
 async function renderEmployeeList() {
   const ul = document.getElementById('employeeList');
   const tpl = document.getElementById('tpl-employee-item');
@@ -131,7 +129,7 @@ async function renderEmployeeList() {
       // IDのみ表示
       a.textContent = API.escapeHtml(String(id ?? ''));
       a.href = '#';
-      // クリックで本人確認→detailへ
+      // クリックでフルネーム入力型パスワード機能
       a.addEventListener('click', (e) => {
         e.preventDefault();
         authenticateEmployee(id, emp?.name ?? '');
@@ -242,11 +240,11 @@ async function refreshGantt() {
   showGanttLoading();
 
   try {
-    // 1) 従業員一覧
+    
     const employees = await API.fetchEmployees();
     const todayISO = ymd(new Date());
 
-    // 2) 各従業員の「今日」だけ履歴を取得
+    
     const tasks = (employees || []).map(emp => API.fetchHistory({
       employeeId: emp.id,
       from: new Date(todayISO),
@@ -257,7 +255,7 @@ async function refreshGantt() {
 
     const results = await Promise.all(tasks);
 
-    // 3) 全行を集約（employeeName を保証）
+    
     const allRows = [];
     for (const { emp, rows } of results) {
       for (const r of rows) {
@@ -269,10 +267,10 @@ async function refreshGantt() {
       }
     }
 
-    // 4) 今日の閉区間を作る（退勤のポジションで色確定）
+    
     const { intervalsByEmp, orderLabels } = buildClosedIntervalsAndOrder(allRows);
 
-    // 5) キャッシュ保存→描画
+    // キャッシュ保存→描画
     saveToCache(intervalsByEmp, orderLabels);
     hideGanttLoading();
     renderChartFromIntervals(intervalsByEmp, orderLabels);
@@ -284,7 +282,7 @@ async function refreshGantt() {
   }
 }
 
-/* ==================== 実データ→区間構築（退勤で色決定） ==================== */
+
 function buildClosedIntervalsAndOrder(rows) {
   const byEmp = groupBy(rows || [], r => String(r.employeeId));
   const result = new Map();
@@ -297,8 +295,8 @@ function buildClosedIntervalsAndOrder(rows) {
     const workClosed = [];
     const breakClosed = [];
 
-    let currentStart = null;   // 勤務開始
-    let breakStart   = null;   // 休憩開始
+    let currentStart = null;   
+    let breakStart   = null;   
     let pendingWork  = [];     // 退勤まで色未確定で貯める
     let lastEndTS    = null;
 
@@ -366,7 +364,7 @@ function buildClosedIntervalsAndOrder(rows) {
             }
           }
 
-          // ★退勤の position を全勤務セグメントに適用
+          
           const cls = posClassName(ev.position || 'レジ');
           for (const seg of pendingWork) seg.className = cls;
           workClosed.push(...pendingWork);
@@ -390,13 +388,13 @@ function buildClosedIntervalsAndOrder(rows) {
   return { intervalsByEmp: result, orderLabels: labels };
 }
 
-/* ==================== Chart.js 描画 ==================== */
+
 function renderChartFromIntervals(intervalsByEmp, orderedLabels) {
   const canvas = document.getElementById('ganttCanvas');
   const emptyMsg = document.getElementById('ganttEmpty');
   if (!canvas) return;
 
-  // ラベル準備
+  
   let names = Array.isArray(orderedLabels) ? orderedLabels.slice() : [];
   if (!names.length) {
     const set = new Set();
@@ -404,11 +402,11 @@ function renderChartFromIntervals(intervalsByEmp, orderedLabels) {
     names = Array.from(set);
   }
 
-  // データセット作成
+  
   const datasets = toChartDatasets(intervalsByEmp);
   const totalBars = datasets.reduce((n, ds) => n + (ds.data?.length || 0), 0);
 
-  // 空の場合
+  
   if (totalBars === 0 || names.length === 0) {
     destroyChart();
     canvas.style.display = 'none';
@@ -426,7 +424,7 @@ function renderChartFromIntervals(intervalsByEmp, orderedLabels) {
   canvas.style.maxHeight = `${canvasHeight}px`;
   canvas.style.overflow = 'hidden';
 
-  // 差分チェック
+  
   const sig = makeSignature(names, datasets);
   if (sig === lastSig) {
     if (emptyMsg) emptyMsg.style.display = 'none';
@@ -614,7 +612,7 @@ function classToPosName(cls) {
   return 'レジ';
 }
 
-// 日時処理
+
 function businessDayBounds(d) {
   const s = new Date(d.getFullYear(), d.getMonth(), d.getDate(), OPEN_HOUR, 0, 0);
   const e = new Date(d.getFullYear(), d.getMonth(), d.getDate(), CLOSE_HOUR, 0, 0);
@@ -643,7 +641,7 @@ function toISO(openMillis, minutesFromOpen_) {
   return new Date(openMillis + minutesFromOpen_ * 60 * 1000).toISOString();
 }
 
-// 配列処理
+
 function groupBy(arr, keyFn) {
   const m = new Map();
   for (const x of arr) {
@@ -654,7 +652,7 @@ function groupBy(arr, keyFn) {
   return m;
 }
 
-// 日付フォーマット
+
 function ts(r) { return asDate(r.date, r.time).getTime(); }
 function normalizeDateStr(s) { return String(s || '').trim().replace(/\./g, '-').replace(/\//g, '-'); }
 function asDate(dateStr, timeStr) {
@@ -672,7 +670,7 @@ function ymd(d) {
   return `${y}-${m}-${day}`;
 }
 
-// シグネチャ
+
 function makeSignature(names, datasets) {
   const dsSig = datasets.map(ds => {
     const n = ds.data?.length || 0;

@@ -14,7 +14,7 @@
 
   <h1 style="text-align: center; font-size: 2rem; font-weight: 700; margin: 0 0 24px; color: var(--text);">従業員勤怠管理</h1>
 
-  <!-- 3カラムヘッダー：左=今月の給与 / 中央=時計 / 右=年間ドーナツ -->
+  <!--3カラム：左=今月の給与 / 中央=時計 / 右=年間給与 -->
 <div class="detail-header-grid">
   <!-- 左：今月の給与合計 -->
   <section class="card mtd-card">
@@ -25,7 +25,7 @@
     <div id="monthlyRange" class="subtext">--/--/-- – --/--/--</div>
   </section>
 
-  <!-- 中央：デジタル時計（コンパクト） -->
+  <!-- 中央：デジタル時計 -->
   <section class="card clock-card" style="display:flex;justify-content:center;align-items:center;">
     <div class="digital-clock-compact">
       <span class="time-large">--:--:--</span>
@@ -33,7 +33,7 @@
     </div>
   </section>
 
-  <!-- 右：年間の給与（ドーナツ） -->
+  <!-- 右：年間の給与 -->
   <section class="card income-card" style="position:relative;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin:0 0 12px;">
       <h3 style="margin:0; font-size:1.05rem; color:#1a1a1a;">今年の収入</h3>
@@ -61,7 +61,7 @@
       </div>
     </div>
 
-    <!-- 年間収入セクション専用ローディング -->
+    <!-- UI意識ローディング表示 -->
     <div id="incomeLoading" class="chart-loading-overlay" style="display:none;">
       <div class="inline-loader">収入データを計算中</div>
     </div>
@@ -85,7 +85,6 @@
         <p id="positionHelp" class="help-text">退勤時は本日担当したポジションを選択してください</p>
       </div>
 
-      <!-- ボタンをJSで注入する置き場 -->
       <div id="actionButtons" class="action-buttons"></div>
     </div>
 
@@ -120,7 +119,6 @@
     </table>
   </div>
 
-  <!-- 履歴1行テンプレ -->
   <template id="tpl-history-row">
     <tr>
       <td class="c-date"></td>
@@ -131,7 +129,6 @@
     </tr>
   </template>
 
-  <!-- グローバルローディングオーバーレイ -->
   <div id="loadingOverlay" class="loading-overlay">
     <div class="loading-spinner"></div>
   </div>
@@ -139,7 +136,7 @@
   <!-- Chart.js 追加 -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 
-  <!-- cache-busting を付けて古いJSを掴まないように -->
+  
   <script src="./api.js?v=42"></script>
   <script src="./detail.js?v=52"></script>
 </body>

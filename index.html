@@ -19,8 +19,7 @@
     </button>
   </header>
 
-  
-  <!-- メインタイトル -->
+
   <h1 class="main-title">smile burger 勤怠管理システム</h1>
 
 
@@ -41,7 +40,6 @@
       <div class="card">
         <h3 id="gantt-title" class="card-title">本日の出勤予定（営業時間 10:00–21:00）</h3>
 
-        <!-- 凡例 -->
         <div class="legend" role="group" aria-label="ポジション凡例">
           <span class="legend-item"><i class="legend-swatch pos-reji"></i>レジ</span>
           <span class="legend-item"><i class="legend-swatch pos-drink"></i>ドリンカー</span>
@@ -70,21 +68,20 @@
     </section>
   </div>
 
-  <!-- モバイルメニューオーバーレイ -->
   <div class="mobile-overlay" id="mobileOverlay"></div>
 
-  <!-- グローバルローディングオーバーレイ -->
+  
   <div id="loadingOverlay" class="loading-overlay" role="status" aria-live="polite" aria-hidden="true">
     <div class="loading-spinner"></div>
     <span class="sr-only">読み込み中...</span>
   </div>
 
-  <!-- 依存（順序厳守） -->
+
 <script src="https://cdn.jsdelivr.net/npm/luxon@3"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1"></script>
 
-<!-- アプリ本体（?v=を上げる） -->
+<!-- アプリ本体 -->
 <script src="./api.js?v=42"></script>
 <script src="./index.js?v=49"></script>
 

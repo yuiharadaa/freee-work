@@ -1,8 +1,3 @@
-/* ================================
-   勤怠管理システム スタイルシート（整理版）
-   ================================ */
-
-/* ==================== CSS変数定義 ==================== */
 :root {
   /* カラーパレット */
   --bg: #FFF9F2;
@@ -21,7 +16,7 @@
   --break: #9ca3af;    /* 休憩（グレー） */
 }
 
-/* ==================== ベーススタイル ==================== */
+
 * { box-sizing: border-box; }
 html, body { height: 100%; }
 
@@ -34,7 +29,7 @@ body {
   line-height: 1.6;
 }
 
-/* ==================== レイアウト ==================== */
+
 .layout {
   display: grid;
   grid-template-columns: 1fr 2fr;
@@ -43,7 +38,7 @@ body {
 .employee-list { align-self: start; }
 .gantt-area { align-self: start; overflow: hidden; max-width: 100%; }
 
-/* ==================== カード ==================== */
+
 .card,
 .detail-card {
   background: var(--card);
@@ -54,14 +49,14 @@ body {
 }
 .card-title { margin: 0 0 12px; font-size: 18px; font-weight: 700; }
 
-/* ==================== リスト ==================== */
+
 .list { list-style: none; padding: 0; margin: 0; }
 .list li { padding: 6px 0; border-bottom: 1px dashed var(--border); }
 .list li:last-child { border-bottom: none; }
 .emp-link { color: #1f2937; text-decoration: underline; cursor: pointer; }
 .emp-link:hover { opacity: .8; }
 
-/* ==================== 凡例 ==================== */
+
 .legend { display: flex; flex-wrap: wrap; gap: 12px; margin: 6px 0 10px; color: var(--muted); font-size: 14px; }
 .legend-item { display: inline-flex; align-items: center; gap: 6px; }
 .legend-swatch { display: inline-block; width: 14px; height: 14px; border-radius: 4px; border: 1px solid var(--border); }
@@ -71,7 +66,7 @@ body {
 .legend-swatch.pos-burger { background: var(--burger); border-color: color-mix(in srgb, var(--burger) 70%, #0000); }
 .legend-swatch.seg-break  { background: var(--break);  border-color: color-mix(in srgb, var(--break) 70%, #0000); }
 
-/* ==================== ガントチャート ==================== */
+
 .gantt-canvas {
   display: block;
   width: 100%;
@@ -84,14 +79,14 @@ body {
   box-sizing: border-box;
 }
 
-/* ポジション別背景色（凡例等で使用） */
+
 .pos-reji { background: var(--reji); }
 .pos-drink { background: var(--drink); }
 .pos-fry { background: var(--fry); }
 .pos-burger { background: var(--burger); }
 .seg-break { background: var(--break); }
 
-/* ==================== テーブル ==================== */
+
 .table { width: 100%; border-collapse: collapse; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
 .table th, .table td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: left; }
 .table thead th { background: #f4f6f8; font-weight: 600; }
@@ -101,7 +96,7 @@ body {
 .status { margin-top: 8px; color: var(--muted); }
 .action-buttons { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
 
-/* ==================== ボタン（ベース） ==================== */
+
 .btn {
   appearance: none;
   border: none;
@@ -121,7 +116,7 @@ body {
 .btn:active { transform: translateY(1px); }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
 
-/* ===== ここから：detail画面の配色（出勤=青 / 退勤=赤 / 休憩=グレー） ===== */
+
 .detail-card .action-buttons .btn-primary   { background: #2563eb; color: #fff; }   /* 出勤 */
 .detail-card .action-buttons .btn-danger    { background: #ef4444; color: #fff; }   /* 退勤 */
 .detail-card .action-buttons .btn-secondary { background: #e5e7eb; color: #111827; }/* 休憩 */
@@ -129,9 +124,9 @@ body {
 .detail-card .action-buttons .btn-danger:hover { filter: brightness(0.97); }
 .detail-card .action-buttons .btn-secondary:hover { background: #d1d5db; }
 
-/* （必要なら全ページに適用したい場合は .detail-card .action-buttons を外して .btn-*** だけに） */
 
-/* ボタン：ローディング状態 */
+
+
 .btn.loading { color: transparent; pointer-events: none; }
 .btn.loading::after {
   content: '';
@@ -145,7 +140,7 @@ body {
   animation: spin .8s linear infinite;
 }
 
-/* 任意：個別のリトライボタン（既存利用がある場合用） */
+
 .btn-retry { background: #6b7280; font-size: 14px; padding: 6px 12px; }
 
 /* ==================== ローディング（共通） ==================== */
@@ -225,7 +220,7 @@ body {
   text-shadow: 0 0 15px rgba(74,222,128,.4); position: relative; z-index: 1; font-weight: 300;
 }
 
-/* 戻るリンク */
+
 .back-link {
   display: inline-block; margin-bottom: 16px; padding: 8px 16px;
   border: 2px solid #333; border-radius: 8px; background-color: #f0f0f0;
@@ -233,10 +228,10 @@ body {
 }
 .back-link:hover { background-color: #333; color: #fff; }
 
-/* ==================== ヘルプテキスト（position用） ==================== */
+
 .help-text { margin-top: 6px; font-size: 12px; color: #6b7280; }
 
-/* ==================== アニメーション ==================== */
+
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.6;} }
 @keyframes dots { 0%,20%{content:'.';} 40%{content:'..';} 60%,100%{content:'...';} }
@@ -289,7 +284,7 @@ button:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
   font-size: 0.9rem;
 }
 
-/* 年間ドーナツのレイアウト */
+/* 年間給与のレイアウト */
 .income-grid {
   display: grid;
   grid-template-columns: 200px 1fr;
@@ -361,20 +356,18 @@ button:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
   .income-stats .bar { width: 100%; max-width: 260px; }
 }
 
-/* ==================== 明るいポップ・テーマ（オプトイン） ==================== */
-/* 使い方：<body class="theme-pop"> を付けるだけ。外せば元に戻る */
+/*ポップな雰囲気*/
 body.theme-pop{
-  /* 既存の変数名はそのまま活かし、値だけを“明るいポップ”に上書き */
-  --bg: #FFF9F2;            /* クリーム */
+  --bg: #FFF9F2;            
   --card: #FFFFFF;
   --text: #222222;
   --muted: #6b7280;
-  --border: #fde7d5;        /* 少し暖色寄りのボーダー */
+  --border: #fde7d5;        
   --shadow: 0 6px 24px rgba(0,0,0,.08);
   --radius: 16px;
 }
 
-/* カード/テーブルの雰囲気を柔らかく */
+
 body.theme-pop .card,
 body.theme-pop .detail-card{
   border-radius: 20px;
@@ -388,17 +381,17 @@ body.theme-pop .table{
   border-color: var(--border);
 }
 body.theme-pop .table thead th{
-  background: #FFF1E6; /* ほんのりオレンジ */
+  background: #FFF1E6; 
   color: #374151;
 }
 
-/* 戻るリンクを“目立つピルボタン”に */
+
 body.theme-pop .back-link{
   display: inline-flex;
   align-items: center;
   gap: 8px;
   border: none;
-  background: #FF7A59;   /* コーラル */
+  background: #FF7A59;   
   color: #fff;
   border-radius: 999px;
   padding: 10px 14px;
@@ -409,7 +402,7 @@ body.theme-pop .back-link:hover{
   box-shadow: 0 6px 20px rgba(255,122,89,.25);
 }
 
-/* デジタル時計を少しポップに（既存クラスはそのまま） */
+
 body.theme-pop .digital-clock{
   background: linear-gradient(90deg, rgba(255,122,89,.08), rgba(48,213,200,.08));
   border: 1px solid var(--border);
@@ -417,24 +410,6 @@ body.theme-pop .digital-clock{
   border-radius: 16px;
 }
 
-/* 年間ドーナツをコンパクトにできる補助クラス（任意） */
-.chart--sm{ width:160px; height:160px; } /* <canvas id="annualSalaryChart" class="chart--sm"> */
-
-/* ピル型チップ（ポジション表示に使える：任意でHTMLに .chip を置くだけ） */
-body.theme-pop .chips{ display:flex; flex-wrap:wrap; gap:8px; }
-body.theme-pop .chip{
-  padding:6px 12px;
-  border-radius: 999px;
-  font-weight: 600;
-  font-size: 12px;
-  background:#fff;
-  border:1px solid rgba(0,0,0,.06);
-  box-shadow: 0 2px 8px rgba(0,0,0,.06);
-}
-body.theme-pop .chip.reji   { background: rgba(255,122,89,.12);  color:#B23E1B; }  /* レジ */
-body.theme-pop .chip.drink  { background: rgba(48,213,200,.14);  color:#126B64; }  /* ドリンカー */
-body.theme-pop .chip.fry    { background: rgba(255,183,3,.16);   color:#8A5C00; }  /* フライヤー */
-body.theme-pop .chip.burger { background: rgba(34,197,94,.14);   color:#0F6B35; }  /* バーガー */
 
 /* ステータス・バッジ（出勤/休憩/退勤の視覚ラベル用：任意） */
 body.theme-pop .badge{
@@ -454,20 +429,20 @@ body.theme-pop .btn:hover{
   box-shadow: 0 6px 20px rgba(0,0,0,.08);
 }
 
-/* ガントのキャンバス縁取りをやさしく */
+
 body.theme-pop .gantt-canvas{
   border-color: var(--border);
   border-radius: 20px;
   box-shadow: var(--shadow);
 }
 
-/* 空状態の背景も少し明るく */
+
 body.theme-pop .empty-state{
   background: #FFF7F0;
   border-color: var(--border);
 }
 
-/* セクション見出しにアクセント（任意：.card-titleに左ライン） */
+/* セクション見出しにアクセント*/
 body.theme-pop .card-title{
   position: relative;
   padding-left: 12px;
@@ -477,20 +452,19 @@ body.theme-pop .card-title::before{
   position: absolute; left:0; top: 0.28em;
   width: 6px; height: 1.2em;
   border-radius: 3px;
-  background: #30D5C8; /* ミント */
+  background: #30D5C8; 
 }
 
-/* メインタイトル全体 */
 .main-title {
   display: inline-flex;
   align-items: center;
-  justify-content: center; /* 全体中央寄せ */
-  gap: 12px;               /* 文字とロゴの間隔 */
+  justify-content: center; 
+  gap: 12px;               
   font-size: 2rem;
   font-weight: 700;
   margin: 0 0 24px;
   color: var(--text);
   text-align: center;
-  width: 100%;             /* 中央寄せ維持 */
+  width: 100%;             
 }
 

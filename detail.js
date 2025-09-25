@@ -1,4 +1,3 @@
-// detail.js v53 - 3カラムヘッダー対応 / MTD&YTD集計 / 退勤だけポジション入力 / 履歴に勤務時間表示
 (function () {
   'use strict';
 
@@ -11,7 +10,7 @@
   // 収入UI
   let incomeChart = null;
 
-  /* ========= 起動 ========= */
+  
   window.addEventListener('DOMContentLoaded', init);
 
   async function init() {
@@ -35,10 +34,10 @@
 
     startClock();
 
-    // 画面全体のリフレッシュ（本日まとめ＋直近履歴）
+    
     await refreshUI();
 
-    // 年間(YTD)と今月(MTD)の収入をロード
+    
     await loadAndRenderIncomeYTD();
     await loadAndRenderIncomeMTD();
 
@@ -52,11 +51,11 @@
     renderStatus(state);
     renderActionButtons(state);
     togglePositionGroup(hasClockOutAction(state));
-    renderHistoryTableWithDurations(rows);   // 履歴に勤務時間を描画
-    updateTodaySummary(rows);                // 本日の合計勤務時間＆日給
+    renderHistoryTableWithDurations(rows);   
+    updateTodaySummary(rows);                
   }
 
-  /* ========= 履歴取得＆状態推定 ========= */
+  
   async function fetchRecentHistory(employeeId) {
     if (!employeeId) return [];
     try {
@@ -129,7 +128,7 @@
     if (group) group.style.display = show ? '' : 'none';
   }
 
-  /* ========= 打刻送信（退勤だけ position 必須） ========= */
+  
   async function onPunch(punchType) {
     const id = currentEmp?.id ?? qs('#empId')?.textContent?.trim();
     const name = currentEmp?.name ?? qs('#empName')?.textContent?.trim();
@@ -167,7 +166,7 @@
     }
   }
 
-  /* ========= 履歴テーブル（退勤行に勤務時間を表示） ========= */
+  
   function renderHistoryTableWithDurations(rows) {
     const tbody = qs('#historyBody');
     const tpl = qs('#tpl-history-row');
@@ -251,7 +250,7 @@
     return map;
   }
 
-  /* ========= 今日の勤務時間＆給料の更新 ========= */
+  
   function updateTodaySummary(allRows) {
     const today = ymd(new Date());
     const rows = (allRows || []).filter(r => normalizeDateStr(r.date) === today)
@@ -311,7 +310,7 @@
     }
   }
 
-  /* ========= 今年の収入（YTD） ========= */
+  
   async function loadAndRenderIncomeYTD() {
     const empId = currentEmp?.id;
     if (!empId) return;
@@ -342,7 +341,7 @@
     }
   }
 
-  /* ========= 今月の収入（MTD） ========= */
+  
   async function loadAndRenderIncomeMTD() {
     const empId = currentEmp?.id;
     if (!empId) return;
@@ -364,7 +363,7 @@
     }
   }
 
-  // rows から勤務分合計（休憩除外、退勤確定ベース）
+  
   function sumWorkMinutes(rows) {
     const asc = (rows || []).slice().sort((a,b) => ts(a) - ts(b));
     let total = 0;
