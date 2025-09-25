@@ -267,3 +267,96 @@ button:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
     scroll-behavior: auto !important;
   }
 }
+
+/* ==== 3カラムヘッダー ==== */
+.detail-header-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr 1fr; /* 左右=1, 中央=少し広め */
+  gap: 16px;
+  margin: 16px 0 20px;
+}
+
+/* 今月の給与 合計表示 */
+.money-hero {
+  font-size: 2.2rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: var(--text);
+  line-height: 1.2;
+}
+.subtext {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+/* 年間ドーナツのレイアウト */
+.income-grid {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 20px;
+  align-items: center;
+}
+.donut-wrap {
+  position: relative;
+  width: 200px;
+  height: 200px;
+}
+.income-stats .bar {
+  width: 220px;
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 8px 0 4px;
+}
+.income-stats .bar #progressBar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #2563eb, #0ea5e9);
+  transition: width 0.3s ease;
+  border-radius: 4px;
+}
+
+/* コンパクト時計 */
+.digital-clock-compact {
+  background: linear-gradient(135deg, #1a1a1a, #2d2d2d);
+  color: #4ade80;
+  padding: 24px 32px;
+  border-radius: 16px;
+  font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255,255,255,0.08);
+  text-align: center;
+  min-width: 360px;
+  position: relative;
+  overflow: hidden;
+}
+.digital-clock-compact .time-large {
+  display: block;
+  font-size: 3.4rem;
+  font-weight: 700;
+  letter-spacing: 4px;
+  margin-bottom: 6px;
+  text-shadow:
+    0 0 20px rgba(74, 222, 128, 0.7),
+    0 0 40px rgba(74, 222, 128, 0.35);
+  font-variant-numeric: tabular-nums;
+}
+.digital-clock-compact .date-large {
+  display: block;
+  font-size: 1.05rem;
+  opacity: 0.95;
+  letter-spacing: 2px;
+}
+
+/* レスポンシブ */
+@media (max-width: 980px) {
+  .detail-header-grid {
+    grid-template-columns: 1fr;
+  }
+  .digital-clock-compact { min-width: auto; }
+  .income-grid {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+  .income-stats .bar { width: 100%; max-width: 260px; }
+}

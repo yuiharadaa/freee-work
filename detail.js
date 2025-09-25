@@ -1,4 +1,4 @@
-// detail.js v52 - 退勤だけポジション入力 / 履歴に勤務時間表示 / 本日の合計＆今年の収入YTD集計
+// detail.js v53 - 3カラムヘッダー対応 / MTD&YTD集計 / 退勤だけポジション入力 / 履歴に勤務時間表示
 (function () {
   'use strict';
 
@@ -38,8 +38,9 @@
     // 画面全体のリフレッシュ（本日まとめ＋直近履歴）
     await refreshUI();
 
-    // 今年の収入（YTD）を別途ロード
+    // 年間(YTD)と今月(MTD)の収入をロード
     await loadAndRenderIncomeYTD();
+    await loadAndRenderIncomeMTD();
 
     try { bc = new BroadcastChannel(BC_CHANNEL_NAME); } catch (e) { console.warn('BC init failed', e); }
   }
@@ -51,8 +52,8 @@
     renderStatus(state);
     renderActionButtons(state);
     togglePositionGroup(hasClockOutAction(state));
-    renderHistoryTableWithDurations(rows);   // ★ 履歴に勤務時間を描画
-    updateTodaySummary(rows);                // ★ 本日の合計勤務時間＆日給
+    renderHistoryTableWithDurations(rows);   // 履歴に勤務時間を描画
+    updateTodaySummary(rows);                // 本日の合計勤務時間＆日給
   }
 
   /* ========= 履歴取得＆状態推定 ========= */
@@ -157,8 +158,9 @@
       }
       toast(`${punchType} を記録しました`, 'success');
       await refreshUI();
-      // 退勤確定＝収入YTDも変わりうる→再集計
+      // 退勤確定＝収入も変わる → YTD/MTDともに再集計
       await loadAndRenderIncomeYTD();
+      await loadAndRenderIncomeMTD();
     } catch (e) {
       console.error('[PUNCH] error', e);
       toast(`「${punchType}」の記録に失敗しました`, 'error');
@@ -171,13 +173,10 @@
     const tpl = qs('#tpl-history-row');
     if (!tbody || !tpl) return;
 
-    // 昇順で走査して「退勤」行の勤務分数を計算 → keyMap に格納
     const asc = (rows || []).slice().sort((a,b) => ts(a) - ts(b));
-    const durMap = calcDurationsForRetireRows(asc); // key: `${date}|${time}|退勤` -> 分
+    const durMap = calcDurationsForRetireRows(asc);
 
-    // 画面表示は降順
     const sorted = (rows || []).slice().sort((a, b) => ts(b) - ts(a));
-
     const frag = document.createDocumentFragment();
     for (const r of sorted) {
       const node = tpl.content.cloneNode(true);
@@ -189,11 +188,9 @@
       setTextNode(node, '.c-time', timeStr);
       setTextNode(node, '.c-type', typeStr);
 
-      // 退勤のときだけポジション表示
       const posCell = sel(node, '.c-pos');
       posCell.textContent = (typeStr === '退勤' && r.position) ? String(r.position) : '';
 
-      // 退勤行の勤務時間をセット
       const durCell = sel(node, '.c-dur');
       if (typeStr === '退勤') {
         const key = `${dateStr}|${timeStr}|退勤`;
@@ -205,12 +202,10 @@
 
       frag.appendChild(node);
     }
-
     tbody.textContent = '';
     tbody.appendChild(frag);
   }
 
-  // 昇順 rows を走査し、直近の「出勤」から「退勤」までの勤務合計（休憩分を除外）を退勤レコードに割り当てる
   function calcDurationsForRetireRows(rowsAsc) {
     const map = new Map();
     let currentStart = null;
@@ -247,10 +242,7 @@
             workMin += minutesDiff(currentStart, t);
             currentStart = null;
           }
-          // 退勤行に合計を割り当て
-          const key = `${dateStr}|${timeStr}|退勤`;
-          map.set(key, workMin);
-          // シフト終了リセット
+          map.set(`${dateStr}|${timeStr}|退勤`, workMin);
           workMin = 0;
           breakStart = null;
           break;
@@ -299,7 +291,6 @@
       }
     }
 
-    // 退勤前で勤務中なら「今」まで加算（休憩中は加算しない）
     if (currentStart && !breakStart) {
       workMin += minutesDiff(currentStart, new Date());
     }
@@ -337,7 +328,6 @@
       const wage = Number(currentEmp?.hourlyWage) || 0;
       const totalYen = Math.floor(wage * (totalMin / 60));
 
-      // UI更新
       setText('#totalIncome', yen(totalYen));
 
       const max = getMaxIncomeGoal();
@@ -352,7 +342,29 @@
     }
   }
 
-  // rows（年内）から勤務分合計（休憩除外）
+  /* ========= 今月の収入（MTD） ========= */
+  async function loadAndRenderIncomeMTD() {
+    const empId = currentEmp?.id;
+    if (!empId) return;
+
+    try {
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const rows = await API.fetchHistory({ employeeId: empId, from: startOfMonth, to: now });
+
+      const totalMin = sumWorkMinutes(rows);
+      const wage = Number(currentEmp?.hourlyWage) || 0;
+      const totalYen = Math.floor(wage * (totalMin / 60));
+
+      setText('#monthlyIncome', yen(totalYen));
+      const rangeEl = qs('#monthlyRange');
+      if (rangeEl) rangeEl.textContent = `${fmtDateSlash(startOfMonth)}–${fmtDateSlash(now)}`;
+    } catch (e) {
+      console.error('[INCOME-MTD] error', e);
+    }
+  }
+
+  // rows から勤務分合計（休憩除外、退勤確定ベース）
   function sumWorkMinutes(rows) {
     const asc = (rows || []).slice().sort((a,b) => ts(a) - ts(b));
     let total = 0;
@@ -393,35 +405,20 @@
       }
     }
     return total;
-    // ※ 退勤前に日をまたぐような未退勤データは YTD に含めません（確定ベース）
   }
 
   function renderIncomeDonut(earned, maxGoal) {
     const ctx = qs('#incomeChart');
     if (!ctx) return;
-
     const remaining = Math.max(0, maxGoal - earned);
     const data = {
       labels: ['達成', '残り'],
-      datasets: [{
-        data: [earned, remaining],
-        backgroundColor: ['#2563eb', '#e5e7eb'],
-        borderWidth: 0
-      }]
+      datasets: [{ data: [earned, remaining], backgroundColor: ['#2563eb', '#e5e7eb'], borderWidth: 0 }]
     };
-    const options = {
-      cutout: '70%',
-      plugins: { legend: { display: false } },
-      animation: false,
-      responsive: false
-    };
+    const options = { cutout: '70%', plugins: { legend: { display: false } }, animation: false, responsive: false };
 
-    if (incomeChart) {
-      incomeChart.data = data;
-      incomeChart.update();
-    } else {
-      incomeChart = new Chart(ctx, { type: 'doughnut', data, options });
-    }
+    if (incomeChart) { incomeChart.data = data; incomeChart.update(); }
+    else { incomeChart = new Chart(ctx, { type: 'doughnut', data, options }); }
   }
 
   function updateProgressUI(earned, maxGoal) {
@@ -454,21 +451,17 @@
       const input = qs('#maxIncomeInput');
       const n = parseYenToNumber(input?.value ?? '0');
       saveMaxIncomeGoal(n);
-      // 入力欄の見た目も整形
       if (input) input.value = n.toLocaleString('ja-JP');
       return n;
     }
     const saved = loadMaxIncomeGoal();
     if (saved > 0) return saved;
-    // HTMLの初期値（例："1,500,000"）
     const input = qs('#maxIncomeInput');
     return parseYenToNumber(input?.value ?? '0');
   }
 
   const MAX_GOAL_KEY = 'income_max_goal';
-  function saveMaxIncomeGoal(n) {
-    try { localStorage.setItem(MAX_GOAL_KEY, String(Math.max(0, Number(n)||0))); } catch {}
-  }
+  function saveMaxIncomeGoal(n) { try { localStorage.setItem(MAX_GOAL_KEY, String(Math.max(0, Number(n)||0))); } catch {} }
   function loadMaxIncomeGoal() {
     try {
       const s = localStorage.getItem(MAX_GOAL_KEY);
@@ -500,6 +493,10 @@
   function formatHM(min) { const h = Math.floor(min / 60); const m = min % 60; return `${h}時間${m}分`; }
   function yen(n) { return '¥' + (Number(n)||0).toLocaleString('ja-JP'); }
   function parseYenToNumber(s) { return Math.max(0, Number(String(s).replace(/[^\d]/g, '')) || 0); }
+  function fmtDateSlash(d) {
+    const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0');
+    return `${y}/${m}/${day}`;
+  }
 
   function toast(msg, type = 'info') {
     const el = document.createElement('div');
