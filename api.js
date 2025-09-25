@@ -295,14 +295,17 @@
       }
       Utils.validateString(name, 'Employee name');
       Utils.validateString(punchType, 'Punch type');
-      Utils.validateString(position, 'Position');
+      const pos = punchType === '退勤' ? position : (position ?? '');
+      if (punchType === '退勤') {
+       Utils.validateString(pos, 'Position');
+      }
 
       const queryParams = new URLSearchParams({
         action: 'punch',
         employeeId: String(id),
         employeeName: String(name),
         punchType: punchType,
-        position: position
+        position: pos
       });
 
       const url = `${CONFIG.API_URL}?${queryParams.toString()}`;

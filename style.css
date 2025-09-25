@@ -627,3 +627,21 @@ button:focus-visible {
   z-index: 1;
   font-weight: 300;
 }
+
+.back-link {
+  display: inline-block;
+  margin-bottom: 16px;
+  padding: 8px 16px;          /* 四角の余白 */
+  border: 2px solid #333;     /* 枠線をつける */
+  border-radius: 8px;         /* 角を丸めたい場合 */
+  background-color: #f0f0f0;  /* 背景色をつける */
+  color: #333;                /* 文字色 */
+  text-decoration: none;      /* 下線を消す */
+  font-weight: bold;          /* 太字にする */
+  transition: 0.2s ease;      /* ホバー時の動きを滑らかに */
+}
+
+.back-link:hover {
+  background-color: #333;     /* ホバー時に反転 */
+  color: #fff;
+}

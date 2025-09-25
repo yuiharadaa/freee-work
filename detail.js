@@ -1,732 +1,285 @@
-// detail.js - 従業員詳細ページ
+// detail.js v48 - 退勤のときだけポジション入力／表示
 
-/* ==================== グローバル状態 ==================== */
-let current = null;
-let maxIncomeLimit = 1500000; // デフォルト上限値
+(function () {
+  'use strict';
 
-/* ==================== ローディング制御 & フィードバック ==================== */
-function showLoading() {
-  const overlay = document.getElementById('loadingOverlay');
-  if (overlay) overlay.classList.add('active');
-}
+  const BC_CHANNEL_NAME = 'punch';
+  const HISTORY_DAYS_SHOWN = 30; // 履歴の既定取得日数（必要なら調整）
 
-function hideLoading() {
-  const overlay = document.getElementById('loadingOverlay');
-  if (overlay) overlay.classList.remove('active');
-}
+  let currentEmp = null;
+  let bc = null;
 
-function showInlineLoader(element, message = '読み込み中') {
-  if (!element) return;
-  element.innerHTML = `<span class="inline-loader">${message}</span>`;
-}
+  // ========= 起動 =========
+  window.addEventListener('DOMContentLoaded', init);
 
-function showToast(message, type = 'success') {
-  const toast = document.createElement('div');
-  toast.className = `toast toast-${type}`;
-  toast.textContent = message;
-  toast.style.cssText = `
-    position: fixed;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: ${type === 'success' ? '#22c55e' : '#ef4444'};
-    color: white;
-    padding: 12px 24px;
-    border-radius: 8px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    z-index: 10000;
-    animation: fadeInUp 0.3s ease;
-  `;
+  async function init() {
+    // URL の empId 取得
+    const empId = new URL(location.href).searchParams.get('empId');
+    if (!empId) {
+      setText('#empName', '（ID未指定）');
+      return;
+    }
 
-  document.body.appendChild(toast);
-
-  setTimeout(() => {
-    toast.style.animation = 'fadeOutDown 0.3s ease';
-    setTimeout(() => toast.remove(), 300);
-  }, 3000);
-}
-
-/* ==================== 初期化処理 ==================== */
-window.addEventListener('DOMContentLoaded', init);
-
-async function init() {
-  // デジタル時計の初期化
-  initDigitalClock();
-
-  // 収入グラフの初期化
-  initIncomeChart();
-
-  // 上限値更新ボタンのイベント設定
-  setupMaxIncomeControl();
-
-  const empId = new URL(location.href).searchParams.get('empId');
-  if (!empId) {
-    document.getElementById('empName').textContent = '（ID未指定）';
-    showToast('従業員IDが指定されていません', 'error');
-    return;
-  }
-
-  showLoading();
-  let retryCount = 0;
-  const maxRetries = 3;
-
-  async function fetchWithRetry() {
+    // 従業員情報
     try {
-      current = await API.fetchEmployee(empId);
-      document.getElementById('empId').textContent = API.escapeHtml(String(current.id));
-      document.getElementById('empName').textContent = API.escapeHtml(String(current.name));
-      await refreshUI();
+      currentEmp = await API.fetchEmployee(empId);
+      setText('#empId', safe(currentEmp?.id ?? empId));
+      setText('#empName', safe(currentEmp?.name ?? '（名前不明）'));
     } catch (e) {
       console.error(e);
-      retryCount++;
-
-      if (retryCount < maxRetries) {
-        console.log(`リトライ ${retryCount}/${maxRetries}`);
-        setTimeout(fetchWithRetry, 1000 * retryCount);
-      } else {
-        document.getElementById('empName').textContent = '従業員情報の取得に失敗しました。';
-        showToast('データの取得に失敗しました', 'error');
-        hideLoading();
-      }
-    }
-  }
-
-  await fetchWithRetry();
-  hideLoading();
-}
-
-/* ==================== UI更新 ==================== */
-async function refreshUI() {
-  // 履歴とアクションボタンは同期的に更新
-  await loadHistoryAndRender();
-  await renderActionButtons();
-
-  // 収入チャートは非同期で更新（ブロックしない）
-  updateIncomeChartAsync();
-}
-
-/* ==================== アクションボタン表示 ==================== */
-async function renderActionButtons() {
-  const container = document.getElementById('actionButtons');
-  showInlineLoader(container, 'アクションを読み込み中');
-
-  try {
-    const all = await API.fetchHistory({ employeeId: current.id, days: 30 });
-    const last = getLastEvent(all);
-    const nextActions = decideNextByLastType(last?.punchType);
-
-    container.textContent = '';
-
-    if (nextActions.length === 0) {
-      container.textContent = '今は実行可能なアクションがありません。';
-      return;
+      setText('#empName', '従業員情報の取得に失敗しました');
     }
 
-    nextActions.forEach(action => {
-      const btn = createActionButton(action);
-      container.appendChild(btn);
-    });
-  } catch (e) {
-    console.error(e);
-    container.textContent = 'アクションの描画に失敗しました。';
-  }
-}
+    // 時計
+    startClock();
 
-function createActionButton(action) {
-  const btn = document.createElement('button');
-  btn.textContent = action;
-
-  // スタイルクラス設定
-  const classMap = {
-    '出勤': 'btn btn-shukkin',
-    '退勤': 'btn btn-taikin',
-    '休憩開始': 'btn btn-kyuukei-start',
-    '休憩終了': 'btn btn-kyuukei-end'
-  };
-  btn.className = classMap[action] || 'btn btn-shukkin';
-
-  btn.addEventListener('click', (e) => onPunchAction(action, e));
-  return btn;
-}
-
-/* ==================== 打刻処理 ==================== */
-async function onPunchAction(action, event) {
-  const status = document.getElementById('status');
-  const position = document.getElementById('position').value;
-
-  // 二重送信防止：すべてのボタンを無効化
-  const buttons = document.querySelectorAll('#actionButtons button');
-  const clickedButton = event ? event.target : buttons[0];
-
-  buttons.forEach(btn => {
-    btn.disabled = true;
-    if (btn === clickedButton) {
-      btn.classList.add('loading');
-    }
-  });
-
-  showInlineLoader(status, '送信中');
-
-  try {
-    const saved = await API.sendPunch({
-      id: current.id,
-      name: current.name,
-      punchType: action,
-      position
-    });
-
-    status.textContent = `打刻完了: ${saved.date} ${saved.time} / ${saved.punchType} / ${saved.position}`;
-
-    // 成功通知
-    showToast(`${action}を記録しました`, 'success');
-
-    // 退勤時はBroadcastChannelで通知
-    if (action === '退勤') {
-      notifyPunchEvent();
-    }
-
+    // 履歴→状態判定→ボタン表示
     await refreshUI();
-  } catch (e) {
-    console.error(e);
-    const errorMessage = e.message || '打刻に失敗しました';
-    status.textContent = `エラー: ${errorMessage}`;
 
-    // エラー通知
-    showToast(errorMessage, 'error');
+    // BroadcastChannel（退勤成功時の通知をホームへ）
+    try {
+      bc = new BroadcastChannel(BC_CHANNEL_NAME);
+    } catch (e) {
+      console.warn('BroadcastChannel init failed', e);
+    }
 
-    // エラー時もボタンを再有効化（リトライ可能にする）
-    buttons.forEach(btn => {
-      btn.classList.remove('loading');
-      btn.disabled = false;
-    });
+    // 収入UIなど他セクションは必要に応じて後で呼ぶ（本件要件外）
+  }
 
-    // リトライボタン表示
-    const retryBtn = document.createElement('button');
-    retryBtn.textContent = '再試行';
-    retryBtn.className = 'btn btn-retry';
-    retryBtn.style.marginLeft = '10px';
-    retryBtn.onclick = () => {
-      retryBtn.remove();
-      onPunchAction(action, event);
+  async function refreshUI() {
+    // 履歴取得（最近分）
+    const rows = await fetchRecentHistory(currentEmp?.id);
+
+    // 状態推定
+    const state = computeStateToday(rows);
+
+    // ステータス表示（お好みで文言調整）
+    renderStatus(state);
+
+    // ボタン再描画
+    renderActionButtons(state);
+
+    // 「退勤ボタンが出ているときだけ」ポジション欄を表示
+    togglePositionGroup(hasClockOutAction(state));
+
+    // 履歴テーブル再描画（退勤だけポジション表示）
+    renderHistoryTable(rows);
+  }
+
+  // ========= 履歴取得＆状態推定 =========
+  async function fetchRecentHistory(employeeId) {
+    if (!employeeId) return [];
+    try {
+      const to = new Date();
+      const from = new Date();
+      from.setDate(to.getDate() - (HISTORY_DAYS_SHOWN - 1));
+      const rows = await API.fetchHistory({ employeeId, from, to });
+      return Array.isArray(rows) ? rows : [];
+    } catch (e) {
+      console.error('[HISTORY] fetch error', e);
+      return [];
+    }
+  }
+
+  // 今日の状態（idle / working / break）
+  function computeStateToday(allRows) {
+    const today = ymd(new Date());
+    const rows = (allRows || []).filter(r => normalizeDateStr(r.date) === today);
+    rows.sort((a, b) => ts(a) - ts(b));
+
+    let mode = 'idle'; // idle | working | break
+    for (const r of rows) {
+      switch (String(r.punchType)) {
+        case '出勤':
+          mode = 'working';
+          break;
+        case '休憩開始':
+          if (mode === 'working') mode = 'break';
+          break;
+        case '休憩終了':
+          if (mode === 'break') mode = 'working';
+          break;
+        case '退勤':
+          mode = 'idle';
+          break;
+      }
+    }
+    return { mode, todayRows: rows };
+  }
+
+  function hasClockOutAction(state) {
+    // working（勤務中）のときだけ退勤を出す設計
+    return state?.mode === 'working';
+  }
+
+  // ========= UI表示 =========
+  function renderStatus(state) {
+    const el = qs('#status');
+    if (!el) return;
+    const map = { idle: '未出勤', working: '勤務中', break: '休憩中' };
+    el.textContent = `現在の状態：${map[state.mode] ?? '不明'}`;
+  }
+
+  function renderActionButtons(state) {
+    const box = qs('#actionButtons');
+    if (!box) return;
+    box.textContent = '';
+
+    const btns = [];
+    if (state.mode === 'idle') {
+      btns.push(makeButton('出勤', 'primary', () => onPunch('出勤')));
+    } else if (state.mode === 'working') {
+      btns.push(makeButton('休憩開始', 'secondary', () => onPunch('休憩開始')));
+      btns.push(makeButton('退勤', 'danger', () => onPunch('退勤')));
+    } else if (state.mode === 'break') {
+      btns.push(makeButton('休憩終了', 'secondary', () => onPunch('休憩終了')));
+    }
+
+    for (const b of btns) box.appendChild(b);
+  }
+
+  function makeButton(label, kind, onClick) {
+    const btn = document.createElement('button');
+    btn.textContent = label;
+    btn.className = `btn btn-${kind}`;
+    btn.addEventListener('click', onClick);
+    return btn;
+  }
+
+  function togglePositionGroup(show) {
+    const group = qs('#positionGroup');
+    if (!group) return;
+    group.style.display = show ? '' : 'none';
+  }
+
+  // ========= 打刻送信（退勤だけ position 必須） =========
+  async function onPunch(punchType) {
+    const id = currentEmp?.id ?? qs('#empId')?.textContent?.trim();
+    const name = currentEmp?.name ?? qs('#empName')?.textContent?.trim();
+
+    if (!id || !name) {
+      toast('従業員情報が未取得です', 'error');
+      return;
+    }
+
+    const isClockOut = (punchType === '退勤');
+    let position = '';
+
+    if (isClockOut) {
+      // 退勤だけ position を必須入力
+      const sel = qs('#position');
+      position = (sel?.value ?? '').trim();
+      if (!position) {
+        toast('退勤時はポジションを選択してください', 'error');
+        qs('#position')?.focus();
+        return;
+      }
+    }
+
+    // APIへ送信
+    try {
+      await API.sendPunch({ id, name, punchType, position });
+
+      // 退勤のときだけホームへ通知（ガント更新用）
+      if (isClockOut && bc) {
+        try {
+          bc.postMessage({ kind: 'punch', punchType: '退勤', at: Date.now() });
+        } catch (e) { /* noop */ }
+      }
+
+      toast(`${punchType} を記録しました`, 'success');
+      await refreshUI();
+    } catch (e) {
+      console.error('[PUNCH] error', e);
+      toast(`「${punchType}」の記録に失敗しました`, 'error');
+    }
+  }
+
+  // ========= 履歴テーブル（退勤だけポジション表示） =========
+  function renderHistoryTable(rows) {
+    const tbody = qs('#historyBody');
+    const tpl = qs('#tpl-history-row');
+    if (!tbody || !tpl) return;
+
+    // 直近の新しい順に
+    const sorted = (rows || []).slice().sort((a, b) => ts(b) - ts(a));
+
+    const frag = document.createDocumentFragment();
+    for (const r of sorted) {
+      const node = tpl.content.cloneNode(true);
+      setTextNode(node, '.c-date', normalizeDateStr(r.date));
+      setTextNode(node, '.c-time', normalizeTimeStr(r.time));
+      setTextNode(node, '.c-type', String(r.punchType ?? ''));
+
+      // ★退勤のときだけポジション表示
+      const posCell = sel(node, '.c-pos');
+      posCell.textContent = (r.punchType === '退勤' && r.position) ? String(r.position) : '';
+
+      // 勤務時間（行単位の長さはケースによるので空でOK/既存ロジックがあればそちらに接続）
+      setTextNode(node, '.c-dur', '');
+
+      frag.appendChild(node);
+    }
+
+    tbody.textContent = '';
+    tbody.appendChild(frag);
+  }
+
+  // ========= ユーティリティ =========
+  function qs(sel, root = document) { return root.querySelector(sel); }
+  function sel(node, s) { return node.querySelector(s); }
+  function setText(selector, v) { const el = qs(selector); if (el) el.textContent = v; }
+  function setTextNode(node, s, v) { const el = sel(node, s); if (el) el.textContent = v; }
+  function safe(v) { return API.escapeHtml(v ?? ''); }
+
+  function normalizeDateStr(s) {
+    return String(s || '').trim().replace(/\./g, '-').replace(/\//g, '-');
+  }
+  function normalizeTimeStr(s) {
+    const t = String(s || '00:00:00').trim();
+    const parts = t.split(':').map(p => p.padStart(2, '0'));
+    while (parts.length < 3) parts.push('00');
+    return parts.slice(0, 3).join(':');
+  }
+  function ts(r) {
+    const d = normalizeDateStr(r.date);
+    const t = normalizeTimeStr(r.time);
+    return new Date(`${d}T${t}`).getTime();
+  }
+  function ymd(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
+  function toast(msg, type = 'info') {
+    const el = document.createElement('div');
+    el.textContent = msg;
+    el.style.cssText = `
+      position: fixed; top: 20px; right: 20px; z-index: 10000;
+      padding: 12px 16px; border-radius: 8px; color: #fff;
+      background: ${type === 'error' ? '#ef4444' : type === 'success' ? '#22c55e' : '#111827'};
+      box-shadow: 0 4px 12px rgba(0,0,0,.12);
+    `;
+    document.body.appendChild(el);
+    setTimeout(() => {
+      el.style.transition = 'opacity .25s';
+      el.style.opacity = '0';
+      setTimeout(() => el.remove(), 250);
+    }, 2200);
+  }
+
+  function startClock() {
+    const timeEl = qs('.time-large');
+    const dateEl = qs('.date-large');
+    const pad = n => String(n).padStart(2, '0');
+    const tick = () => {
+      const d = new Date();
+      if (timeEl) timeEl.textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+      if (dateEl) dateEl.textContent = `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日`;
     };
-    status.appendChild(retryBtn);
+    tick();
+    setInterval(tick, 1000);
   }
-}
-
-function notifyPunchEvent() {
-  try {
-    const bc = new BroadcastChannel('punch');
-    bc.postMessage({
-      kind: 'punch',
-      punchType: '退勤',
-      at: new Date().toISOString()
-    });
-    bc.close();
-  } catch (e) {
-    console.warn('[DETAIL] BC send failed:', e);
-  }
-}
-
-/* ==================== 履歴表示 ==================== */
-async function loadHistoryAndRender() {
-  const tbody = document.getElementById('historyBody');
-  const tplRow = document.getElementById('tpl-history-row');
-  const totalEl = document.getElementById('workTotal');
-
-  showInlineLoader(tbody, '履歴を読み込み中');
-
-  try {
-    const rows = await API.fetchHistory({ employeeId: current.id, days: 30 });
-
-    if (rows.length === 0) {
-      renderEmptyHistory(tbody, totalEl);
-      return;
-    }
-
-    // 新しい順にソート
-    const rowsDesc = sortHistoryDescending(rows);
-
-    // 勤務時間計算
-    const durMap = buildWorkDurations(rows);
-
-    // 履歴表示
-    renderHistoryRows(tbody, tplRow, rowsDesc, durMap);
-
-    // 本日の合計勤務時間
-    if (totalEl) {
-      updateTodayTotal(totalEl, rows);
-    }
-  } catch (e) {
-    console.error(e);
-    renderHistoryError(tbody, totalEl);
-  }
-}
-
-function renderEmptyHistory(tbody, totalEl) {
-  tbody.innerHTML = '<tr><td colspan="5">履歴はありません。</td></tr>';
-  if (totalEl) totalEl.textContent = '0時間0分';
-}
-
-function renderHistoryError(tbody, totalEl) {
-  tbody.innerHTML = '<tr><td colspan="5">履歴の取得に失敗しました。</td></tr>';
-  if (totalEl) totalEl.textContent = '-';
-}
-
-function renderHistoryRows(tbody, tplRow, rows, durMap) {
-  const frag = document.createDocumentFragment();
-
-  rows.forEach(r => {
-    const tr = tplRow.content.cloneNode(true);
-    tr.querySelector('.c-date').textContent = API.escapeHtml(r.date);
-    tr.querySelector('.c-time').textContent = API.escapeHtml(r.time);
-    tr.querySelector('.c-type').textContent = API.escapeHtml(r.punchType);
-    tr.querySelector('.c-pos').textContent = API.escapeHtml(r.position);
-
-    // 勤務時間表示
-    const key = makeEventKey(r.date, r.time, r.punchType);
-    const ms = durMap.get(key);
-    tr.querySelector('.c-dur').textContent = ms ? formatHm(ms) : '';
-
-    frag.appendChild(tr);
-  });
-
-  tbody.textContent = '';
-  tbody.appendChild(frag);
-}
-
-function updateTodayTotal(totalEl, rows) {
-  const today = ymd(new Date());
-  const todayRows = rows
-    .filter(r => normalizeDate(r.date) === today)
-    .sort((a, b) => toTimestamp(a.date, a.time) - toTimestamp(b.date, b.time));
-
-  const totalMs = calcWorkTotal(todayRows);
-  const h = Math.floor(totalMs / 1000 / 60 / 60);
-  const m = Math.floor(totalMs / 1000 / 60) % 60;
-  totalEl.textContent = `${h}時間${m}分`;
-
-  // 退勤済みチェックと給料計算
-  const hasClockedOut = todayRows.some(r => r.punchType === '退勤');
-  const salaryContainer = document.getElementById('dailySalaryContainer');
-  const dailySalaryEl = document.getElementById('dailySalary');
-  const hourlyWageEl = document.getElementById('hourlyWage');
-
-  if (hasClockedOut && current?.hourlyWage && salaryContainer && dailySalaryEl && hourlyWageEl) {
-    // 時給を表示
-    const hourlyWage = current.hourlyWage;
-    hourlyWageEl.textContent = `¥${hourlyWage.toLocaleString()}`;
-
-    // 給料を計算（勤務時間（時間）× 時給）
-    const workHours = totalMs / 1000 / 60 / 60;
-    const dailySalary = Math.floor(workHours * hourlyWage);
-    dailySalaryEl.textContent = `¥${dailySalary.toLocaleString()}`;
-
-    // 給料表示エリアを表示
-    salaryContainer.style.display = 'block';
-  } else if (salaryContainer) {
-    // 退勤していない場合は非表示
-    salaryContainer.style.display = 'none';
-  }
-}
-
-/* ==================== 勤務時間計算 ==================== */
-function buildWorkDurations(rowsAsc) {
-  const map = new Map();
-  let runningStart = null;
-
-  rowsAsc.sort((a, b) => toTimestamp(a.date, a.time) - toTimestamp(b.date, b.time));
-
-  rowsAsc.forEach(r => {
-    const ts = toTimestamp(r.date, r.time);
-
-    switch (r.punchType) {
-      case '出勤':
-      case '休憩終了':
-        runningStart = ts;
-        break;
-
-      case '休憩開始':
-      case '退勤':
-        if (runningStart != null) {
-          const dur = ts - runningStart;
-          // 秒を切り捨て（分単位に切り捨て）
-          const durMinutes = Math.floor(dur / 1000 / 60);
-          const durMs = durMinutes * 60 * 1000;
-          const key = makeEventKey(r.date, r.time, r.punchType);
-          map.set(key, durMs);
-          runningStart = null;
-        }
-        break;
-    }
-  });
-
-  return map;
-}
-
-function calcWorkTotal(rowsAsc) {
-  let total = 0;
-  let runningStart = null;
-
-  rowsAsc.forEach(r => {
-    const ts = toTimestamp(r.date, r.time);
-
-    switch (r.punchType) {
-      case '出勤':
-      case '休憩終了':
-        runningStart = ts;
-        break;
-
-      case '休憩開始':
-      case '退勤':
-        if (runningStart != null) {
-          const durationMs = ts - runningStart;
-          // 秒を切り捨て（分単位に切り捨て）
-          const durationMinutes = Math.floor(durationMs / 1000 / 60);
-          total += durationMinutes * 60 * 1000; // ミリ秒に戻す
-          runningStart = null;
-        }
-        break;
-    }
-  });
-
-  return total;
-}
-
-/* ==================== 状態判定 ==================== */
-function getLastEvent(rows) {
-  if (!Array.isArray(rows) || rows.length === 0) return null;
-
-  const withTs = rows
-    .map(r => ({ ...r, __ts: toTimestamp(r.date, r.time) }))
-    .filter(r => !Number.isNaN(r.__ts));
-
-  if (withTs.length === 0) return null;
-
-  withTs.sort((a, b) => b.__ts - a.__ts);
-  return withTs[0];
-}
-
-function decideNextByLastType(lastType) {
-  if (!lastType) return ['出勤'];
-
-  const transitions = {
-    '出勤': ['退勤', '休憩開始'],
-    '休憩開始': ['休憩終了'],
-    '休憩終了': ['退勤', '休憩開始'],
-    '退勤': ['出勤']
-  };
-
-  return transitions[lastType] || ['出勤'];
-}
-
-/* ==================== ユーティリティ関数 ==================== */
-// ソート
-function sortHistoryDescending(rows) {
-  return rows.slice().sort((a, b) => {
-    const tsA = toTimestamp(a.date, a.time);
-    const tsB = toTimestamp(b.date, b.time);
-    return tsB - tsA;
-  });
-}
-
-// 日時処理
-function toTimestamp(dateStr, timeStr) {
-  const d = normalizeDate(dateStr);
-  const t = normalizeTime(timeStr);
-  const iso = `${d}T${t}`;
-  return new Date(iso).getTime();
-}
-
-function normalizeDate(s) {
-  return String(s || '').trim().replace(/\./g, '-').replace(/\//g, '-');
-}
-
-function normalizeTime(s) {
-  let t = String(s || '00:00:00').trim();
-  const parts = t.split(':').map(x => x.padStart(2, '0'));
-  while (parts.length < 3) parts.push('00');
-  return parts.slice(0, 3).join(':');
-}
-
-function ymd(d) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
-// フォーマット
-function formatHm(ms) {
-  const m = Math.max(0, Math.floor(ms / 1000 / 60));
-  const h = Math.floor(m / 60);
-  const mm = m % 60;
-  return h ? `${h}時間${mm}分` : `${mm}分`;
-}
-
-function makeEventKey(dateStr, timeStr, type) {
-  return `${normalizeDate(dateStr)} ${normalizeTime(timeStr)} ${type}`;
-}
-
-/* ==================== デジタル時計機能 ==================== */
-let clockUpdateInterval = null;
-
-function initDigitalClock() {
-  // 即座に時計を更新
-  updateDigitalClock();
-
-  // 1秒ごとに時計を更新
-  if (clockUpdateInterval) {
-    clearInterval(clockUpdateInterval);
-  }
-  clockUpdateInterval = setInterval(updateDigitalClock, 1000);
-}
-
-function updateDigitalClock() {
-  const now = new Date();
-  const timeElement = document.querySelector('.time-large');
-  const dateElement = document.querySelector('.date-large');
-
-  if (!timeElement || !dateElement) return;
-
-  // 時刻をフォーマット (HH:MM:SS)
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  const seconds = String(now.getSeconds()).padStart(2, '0');
-  const timeString = `${hours}:${minutes}:${seconds}`;
-
-  // 日付をフォーマット (YYYY年MM月DD日)
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const date = String(now.getDate()).padStart(2, '0');
-  const dateString = `${year}年${month}月${date}日`;
-
-  // DOM要素を更新
-  timeElement.textContent = timeString;
-  dateElement.textContent = dateString;
-}
-
-// ページを離れる時にintervalをクリア
-window.addEventListener('beforeunload', () => {
-  if (clockUpdateInterval) {
-    clearInterval(clockUpdateInterval);
-  }
-});
-
-/* ==================== 収入グラフ機能 ==================== */
-let incomeChart = null;
-
-// 上限値コントロールの設定
-function setupMaxIncomeControl() {
-  const input = document.getElementById('maxIncomeInput');
-  const button = document.getElementById('updateMaxIncome');
-  const display = document.getElementById('maxIncomeDisplay');
-
-  if (!input || !button || !display) return;
-
-  // 入力値のフォーマット（コンマ区切り表示）
-  const formatInput = () => {
-    const value = parseInt(input.value.replace(/,/g, ''));
-    if (!isNaN(value)) {
-      input.value = value.toLocaleString();
-    }
-  };
-
-  // 更新ボタンクリック時
-  button.addEventListener('click', () => {
-    const cleanValue = input.value.replace(/,/g, '');
-    const newValue = parseInt(cleanValue);
-    if (isNaN(newValue) || newValue <= 0) {
-      alert('正しい金額を入力してください');
-      input.value = maxIncomeLimit.toLocaleString();
-      return;
-    }
-
-    maxIncomeLimit = newValue;
-    display.textContent = '¥' + maxIncomeLimit.toLocaleString();
-    formatInput();
-
-    // グラフを再描画
-    if (incomeChart) {
-      updateIncomeChartAsync();
-    }
-  });
-
-  // Enterキーでも更新
-  input.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-      button.click();
-    }
-  });
-
-  // フォーカスアウト時にフォーマット
-  input.addEventListener('blur', formatInput);
-
-  // 初期値をフォーマット表示
-  input.value = maxIncomeLimit.toLocaleString();
-}
-
-function initIncomeChart() {
-  const canvas = document.getElementById('incomeChart');
-  if (!canvas) return;
-
-  const ctx = canvas.getContext('2d');
-
-  // 初期チャート設定
-  incomeChart = new Chart(ctx, {
-    type: 'doughnut',
-    data: {
-      labels: ['稼いだ額', '上限まで'],
-      datasets: [{
-        data: [0, maxIncomeLimit],
-        backgroundColor: [
-          'linear-gradient(135deg, #2563eb, #0ea5e9)',
-          '#e5e7eb'
-        ],
-        borderWidth: 0
-      }]
-    },
-    options: {
-      responsive: false,
-      maintainAspectRatio: true,
-      cutout: '75%',
-      plugins: {
-        legend: {
-          display: false
-        },
-        tooltip: {
-          callbacks: {
-            label: function(context) {
-              const label = context.label || '';
-              const value = context.parsed || 0;
-              return label + ': ¥' + value.toLocaleString();
-            }
-          }
-        }
-      }
-    },
-    plugins: [{
-      id: 'centerText',
-      beforeDraw: function(chart) {
-        const ctx = chart.ctx;
-        ctx.save();
-        const centerX = (chart.chartArea.left + chart.chartArea.right) / 2;
-        const centerY = (chart.chartArea.top + chart.chartArea.bottom) / 2;
-
-        const earned = chart.data.datasets[0].data[0];
-        const percentage = Math.round((earned / maxIncomeLimit) * 100);
-
-        ctx.font = 'bold 24px sans-serif';
-        ctx.fillStyle = '#1a1a1a';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(percentage + '%', centerX, centerY - 5);
-
-        ctx.font = '12px sans-serif';
-        ctx.fillStyle = '#6b7280';
-        ctx.fillText('', centerX, centerY + 15);
-
-        ctx.restore();
-      }
-    }]
-  });
-}
-
-// 収入チャートの非同期更新
-function updateIncomeChartAsync() {
-  if (!incomeChart || !current) return;
-
-  // ローディング表示
-  const incomeLoading = document.getElementById('incomeLoading');
-  if (incomeLoading) {
-    incomeLoading.style.display = 'flex';
-  }
-
-  // 非同期で実行
-  setTimeout(() => {
-    updateIncomeChart();
-  }, 100);
-}
-
-async function updateIncomeChart() {
-  if (!incomeChart || !current) return;
-
-  const incomeLoading = document.getElementById('incomeLoading');
-
-  try {
-    // 今年の全履歴を取得（最大365日分だが、APIの制限に応じて調整）
-    const rows = await API.fetchHistory({ employeeId: current.id, days: 365 });
-
-    // 今年のデータのみフィルタリング
-    const currentYear = new Date().getFullYear();
-    const yearRows = rows.filter(r => {
-      const date = new Date(normalizeDate(r.date));
-      return date.getFullYear() === currentYear;
-    });
-
-    // 日別に勤務データをグループ化
-    const dailyWork = new Map();
-    yearRows.forEach(r => {
-      const date = normalizeDate(r.date);
-      if (!dailyWork.has(date)) {
-        dailyWork.set(date, []);
-      }
-      dailyWork.get(date).push(r);
-    });
-
-    // 実際の勤務時間から収入を計算
-    let totalIncome = 0;
-    const hourlyWage = 1200; // 時給¥1,200（固定値）
-
-    dailyWork.forEach((dayRows) => {
-      const sortedRows = dayRows.sort((a, b) =>
-        toTimestamp(a.date, a.time) - toTimestamp(b.date, b.time)
-      );
-      const workMs = calcWorkTotal(sortedRows);
-      const workHours = workMs / 1000 / 60 / 60;
-      totalIncome += Math.floor(workHours * hourlyWage);
-    });
-
-    // 実データのみ使用、モック値は一切使わない
-    const remaining = Math.max(0, maxIncomeLimit - totalIncome);
-    const percentage = Math.min(100, Math.round((totalIncome / maxIncomeLimit) * 100));
-
-    // グラフ更新
-    incomeChart.data.datasets[0].data = [totalIncome, remaining];
-
-    // グラデーション背景を適用
-    const gradient = incomeChart.ctx.createLinearGradient(0, 0, 200, 200);
-    gradient.addColorStop(0, '#2563eb');
-    gradient.addColorStop(1, '#0ea5e9');
-    incomeChart.data.datasets[0].backgroundColor = [gradient, '#e5e7eb'];
-
-    incomeChart.update();
-
-    // UI更新
-    document.getElementById('totalIncome').textContent = '¥' + totalIncome.toLocaleString();
-    document.getElementById('progressBar').style.width = percentage + '%';
-    document.getElementById('progressPercent').textContent = percentage + '%';
-
-    // ローディングを非表示
-    if (incomeLoading) {
-      incomeLoading.style.display = 'none';
-    }
-
-  } catch (e) {
-    console.error('収入データの取得に失敗:', e);
-    // エラー時は0円を表示
-    const totalIncome = 0;
-    const percentage = 0;
-
-    incomeChart.data.datasets[0].data = [0, maxIncomeLimit];
-    incomeChart.update();
-
-    document.getElementById('totalIncome').textContent = '¥0';
-    document.getElementById('progressBar').style.width = '0%';
-    document.getElementById('progressPercent').textContent = '0%';
-
-    // ローディングを非表示
-    if (incomeLoading) {
-      incomeLoading.style.display = 'none';
-    }
-  }
-}
+})();

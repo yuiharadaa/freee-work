@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="./responsive.css?v=1" />
 </head>
 <body>
-  <a href="./index.html" style="display: inline-block; margin-bottom: 16px; color: var(--text); text-decoration: none;">← 一覧へ戻る</a>
+  <a href="./index.html" class="back-link">← 一覧へ戻る</a>
 
   <h1 style="text-align: center; font-size: 2rem; font-weight: 700; margin: 0 0 24px; color: var(--text);">従業員勤怠管理</h1>
 
@@ -27,7 +27,7 @@
     <div><strong>名前:</strong> <span id="empName">-</span></div>
 
     <div class="row">
-      <div>
+      <div id="positionGroup" style="display:none;"></div>
         <label for="position">ポジション</label><br/>
         <select id="position" aria-label="ポジション選択">
           <option value="レジ">レジ</option>
@@ -132,3 +132,4 @@
   <script src="./detail.js?v=47"></script>
 </body>
 </html>
+
