@@ -5,7 +5,7 @@
 /* ==================== CSS変数定義 ==================== */
 :root {
   /* カラーパレット */
-  --bg: #f8fafc;
+  --bg: #FFF9F2;
   --card: #ffffff;
   --text: #0f172a;
   --muted: #64748b;
@@ -492,11 +492,5 @@ body.theme-pop .card-title::before{
   color: var(--text);
   text-align: center;
   width: 100%;             /* 中央寄せ維持 */
-}
-
-/* タイトル横のロゴ */
-.title-logo {
-  height: 36px;  /* 小さめに表示 */
-  width: auto;
 }
 
