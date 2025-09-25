@@ -1,4 +1,4 @@
-// detail.js v51 - 退勤だけポジション入力／履歴は退勤だけ表示／本日の合計勤務時間と日給の集計あり
+// detail.js v52 - 退勤だけポジション入力 / 履歴に勤務時間表示 / 本日の合計＆今年の収入YTD集計
 (function () {
   'use strict';
 
@@ -7,6 +7,9 @@
 
   let currentEmp = null;
   let bc = null;
+
+  // 収入UI
+  let incomeChart = null;
 
   /* ========= 起動 ========= */
   window.addEventListener('DOMContentLoaded', init);
@@ -27,8 +30,16 @@
       setText('#empName', '従業員情報の取得に失敗しました');
     }
 
+    // 収入上限の保存値ロード
+    bootIncomeControls();
+
     startClock();
+
+    // 画面全体のリフレッシュ（本日まとめ＋直近履歴）
     await refreshUI();
+
+    // 今年の収入（YTD）を別途ロード
+    await loadAndRenderIncomeYTD();
 
     try { bc = new BroadcastChannel(BC_CHANNEL_NAME); } catch (e) { console.warn('BC init failed', e); }
   }
@@ -40,8 +51,8 @@
     renderStatus(state);
     renderActionButtons(state);
     togglePositionGroup(hasClockOutAction(state));
-    renderHistoryTable(rows);
-    updateTodaySummary(rows);        // ★ 本日の合計勤務時間＆日給を更新
+    renderHistoryTableWithDurations(rows);   // ★ 履歴に勤務時間を描画
+    updateTodaySummary(rows);                // ★ 本日の合計勤務時間＆日給
   }
 
   /* ========= 履歴取得＆状態推定 ========= */
@@ -146,30 +157,52 @@
       }
       toast(`${punchType} を記録しました`, 'success');
       await refreshUI();
+      // 退勤確定＝収入YTDも変わりうる→再集計
+      await loadAndRenderIncomeYTD();
     } catch (e) {
       console.error('[PUNCH] error', e);
       toast(`「${punchType}」の記録に失敗しました`, 'error');
     }
   }
 
-  /* ========= 履歴テーブル（退勤だけポジション表示） ========= */
-  function renderHistoryTable(rows) {
+  /* ========= 履歴テーブル（退勤行に勤務時間を表示） ========= */
+  function renderHistoryTableWithDurations(rows) {
     const tbody = qs('#historyBody');
     const tpl = qs('#tpl-history-row');
     if (!tbody || !tpl) return;
 
+    // 昇順で走査して「退勤」行の勤務分数を計算 → keyMap に格納
+    const asc = (rows || []).slice().sort((a,b) => ts(a) - ts(b));
+    const durMap = calcDurationsForRetireRows(asc); // key: `${date}|${time}|退勤` -> 分
+
+    // 画面表示は降順
     const sorted = (rows || []).slice().sort((a, b) => ts(b) - ts(a));
 
     const frag = document.createDocumentFragment();
     for (const r of sorted) {
       const node = tpl.content.cloneNode(true);
-      setTextNode(node, '.c-date', normalizeDateStr(r.date));
-      setTextNode(node, '.c-time', normalizeTimeStr(r.time));
-      setTextNode(node, '.c-type', String(r.punchType ?? ''));
+      const dateStr = normalizeDateStr(r.date);
+      const timeStr = normalizeTimeStr(r.time);
+      const typeStr = String(r.punchType ?? '');
+
+      setTextNode(node, '.c-date', dateStr);
+      setTextNode(node, '.c-time', timeStr);
+      setTextNode(node, '.c-type', typeStr);
+
+      // 退勤のときだけポジション表示
       const posCell = sel(node, '.c-pos');
-      posCell.textContent = (r.punchType === '退勤' && r.position) ? String(r.position) : '';
-      // 「勤務時間」列（.c-dur）は用途が分かれるため、ここでは空にしておく
-      setTextNode(node, '.c-dur', '');
+      posCell.textContent = (typeStr === '退勤' && r.position) ? String(r.position) : '';
+
+      // 退勤行の勤務時間をセット
+      const durCell = sel(node, '.c-dur');
+      if (typeStr === '退勤') {
+        const key = `${dateStr}|${timeStr}|退勤`;
+        const min = durMap.get(key) || 0;
+        durCell.textContent = min > 0 ? formatHM(min) : '';
+      } else {
+        durCell.textContent = '';
+      }
+
       frag.appendChild(node);
     }
 
@@ -177,7 +210,56 @@
     tbody.appendChild(frag);
   }
 
-  /* ========= 今日の勤務時間＆給料の更新（前に入れていた機能） ========= */
+  // 昇順 rows を走査し、直近の「出勤」から「退勤」までの勤務合計（休憩分を除外）を退勤レコードに割り当てる
+  function calcDurationsForRetireRows(rowsAsc) {
+    const map = new Map();
+    let currentStart = null;
+    let breakStart   = null;
+    let workMin      = 0;
+
+    for (const r of rowsAsc) {
+      const dateStr = normalizeDateStr(r.date);
+      const timeStr = normalizeTimeStr(r.time);
+      const t = new Date(`${dateStr}T${timeStr}`);
+      const type = String(r.punchType);
+
+      switch (type) {
+        case '出勤':
+          currentStart = t;
+          breakStart = null;
+          workMin = 0;
+          break;
+        case '休憩開始':
+          if (currentStart) {
+            workMin += minutesDiff(currentStart, t);
+            currentStart = null;
+          }
+          breakStart = t;
+          break;
+        case '休憩終了':
+          if (breakStart) {
+            breakStart = null;
+            currentStart = t;
+          }
+          break;
+        case '退勤':
+          if (currentStart) {
+            workMin += minutesDiff(currentStart, t);
+            currentStart = null;
+          }
+          // 退勤行に合計を割り当て
+          const key = `${dateStr}|${timeStr}|退勤`;
+          map.set(key, workMin);
+          // シフト終了リセット
+          workMin = 0;
+          breakStart = null;
+          break;
+      }
+    }
+    return map;
+  }
+
+  /* ========= 今日の勤務時間＆給料の更新 ========= */
   function updateTodaySummary(allRows) {
     const today = ymd(new Date());
     const rows = (allRows || []).filter(r => normalizeDateStr(r.date) === today)
@@ -238,6 +320,163 @@
     }
   }
 
+  /* ========= 今年の収入（YTD） ========= */
+  async function loadAndRenderIncomeYTD() {
+    const empId = currentEmp?.id;
+    if (!empId) return;
+
+    const loading = qs('#incomeLoading');
+    if (loading) loading.style.display = 'flex';
+
+    try {
+      const now = new Date();
+      const startOfYear = new Date(now.getFullYear(), 0, 1);
+      const rows = await API.fetchHistory({ employeeId: empId, from: startOfYear, to: now });
+
+      const totalMin = sumWorkMinutes(rows);
+      const wage = Number(currentEmp?.hourlyWage) || 0;
+      const totalYen = Math.floor(wage * (totalMin / 60));
+
+      // UI更新
+      setText('#totalIncome', yen(totalYen));
+
+      const max = getMaxIncomeGoal();
+      setText('#maxIncomeDisplay', yen(max));
+      updateProgressUI(totalYen, max);
+
+      renderIncomeDonut(totalYen, max);
+    } catch (e) {
+      console.error('[INCOME] error', e);
+    } finally {
+      if (loading) loading.style.display = 'none';
+    }
+  }
+
+  // rows（年内）から勤務分合計（休憩除外）
+  function sumWorkMinutes(rows) {
+    const asc = (rows || []).slice().sort((a,b) => ts(a) - ts(b));
+    let total = 0;
+    let currentStart = null;
+    let breakStart   = null;
+
+    for (const r of asc) {
+      const d = normalizeDateStr(r.date);
+      const t = normalizeTimeStr(r.time);
+      const when = new Date(`${d}T${t}`);
+      const type = String(r.punchType);
+
+      switch (type) {
+        case '出勤':
+          currentStart = when;
+          breakStart = null;
+          break;
+        case '休憩開始':
+          if (currentStart) {
+            total += minutesDiff(currentStart, when);
+            currentStart = null;
+          }
+          breakStart = when;
+          break;
+        case '休憩終了':
+          if (breakStart) {
+            breakStart = null;
+            currentStart = when;
+          }
+          break;
+        case '退勤':
+          if (currentStart) {
+            total += minutesDiff(currentStart, when);
+            currentStart = null;
+          }
+          breakStart = null;
+          break;
+      }
+    }
+    return total;
+    // ※ 退勤前に日をまたぐような未退勤データは YTD に含めません（確定ベース）
+  }
+
+  function renderIncomeDonut(earned, maxGoal) {
+    const ctx = qs('#incomeChart');
+    if (!ctx) return;
+
+    const remaining = Math.max(0, maxGoal - earned);
+    const data = {
+      labels: ['達成', '残り'],
+      datasets: [{
+        data: [earned, remaining],
+        backgroundColor: ['#2563eb', '#e5e7eb'],
+        borderWidth: 0
+      }]
+    };
+    const options = {
+      cutout: '70%',
+      plugins: { legend: { display: false } },
+      animation: false,
+      responsive: false
+    };
+
+    if (incomeChart) {
+      incomeChart.data = data;
+      incomeChart.update();
+    } else {
+      incomeChart = new Chart(ctx, { type: 'doughnut', data, options });
+    }
+  }
+
+  function updateProgressUI(earned, maxGoal) {
+    const bar = qs('#progressBar');
+    const pctEl = qs('#progressPercent');
+    const pct = maxGoal > 0 ? Math.min(100, Math.floor((earned / maxGoal) * 100)) : 0;
+    if (bar) bar.style.width = `${pct}%`;
+    if (pctEl) pctEl.textContent = `${pct}%`;
+  }
+
+  function bootIncomeControls() {
+    const input = qs('#maxIncomeInput');
+    const btn   = qs('#updateMaxIncome');
+
+    if (input) {
+      const saved = loadMaxIncomeGoal();
+      if (saved > 0) input.value = saved.toLocaleString('ja-JP');
+    }
+    if (btn) {
+      btn.addEventListener('click', async () => {
+        const val = getMaxIncomeGoal(true);
+        setText('#maxIncomeDisplay', yen(val));
+        await loadAndRenderIncomeYTD(); // 進捗・円グラフを再描画
+      });
+    }
+  }
+
+  function getMaxIncomeGoal(fromInput = false) {
+    if (fromInput) {
+      const input = qs('#maxIncomeInput');
+      const n = parseYenToNumber(input?.value ?? '0');
+      saveMaxIncomeGoal(n);
+      // 入力欄の見た目も整形
+      if (input) input.value = n.toLocaleString('ja-JP');
+      return n;
+    }
+    const saved = loadMaxIncomeGoal();
+    if (saved > 0) return saved;
+    // HTMLの初期値（例："1,500,000"）
+    const input = qs('#maxIncomeInput');
+    return parseYenToNumber(input?.value ?? '0');
+  }
+
+  const MAX_GOAL_KEY = 'income_max_goal';
+  function saveMaxIncomeGoal(n) {
+    try { localStorage.setItem(MAX_GOAL_KEY, String(Math.max(0, Number(n)||0))); } catch {}
+  }
+  function loadMaxIncomeGoal() {
+    try {
+      const s = localStorage.getItem(MAX_GOAL_KEY);
+      const n = Number(s);
+      return Number.isFinite(n) && n > 0 ? n : 0;
+    } catch { return 0; }
+  }
+
   /* ========= ユーティリティ ========= */
   function qs(sel, root = document) { return root.querySelector(sel); }
   function sel(node, s) { return node.querySelector(s); }
@@ -260,6 +499,7 @@
   function minutesDiff(a, b) { return Math.floor(Math.max(0, b.getTime() - a.getTime()) / 60000); }
   function formatHM(min) { const h = Math.floor(min / 60); const m = min % 60; return `${h}時間${m}分`; }
   function yen(n) { return '¥' + (Number(n)||0).toLocaleString('ja-JP'); }
+  function parseYenToNumber(s) { return Math.max(0, Number(String(s).replace(/[^\d]/g, '')) || 0); }
 
   function toast(msg, type = 'info') {
     const el = document.createElement('div');
